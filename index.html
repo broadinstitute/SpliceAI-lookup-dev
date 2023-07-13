@@ -597,7 +597,7 @@
                     scores.DS_DG_ALT = Math.round(scores.DS_DG_ALT * 100) / 100
                 }
 
-                let result= "<tr class='upperBorder' style='background-color:" + background_color+"'>" +
+                let result= "<tbody class='" +  (is_canonical_transcript || scores.is_pangolin  ? "canonical": (is_protein_coding ? "coding" : "noncoding")) + "' style='background-color:" + background_color + "'><tr class='upperBorder'>" +
                   "<td rowspan='" + (scores.is_pangolin ? 2: 4) + "' style='vertical-align: top'>" +
                   "<div style='margin-right:10px; display: inline-block'>" + scores.variant + "</div><br class='only-large-screen'/><br class='only-large-screen'/>" +
                     "<a href='"+variant_ucsc_url+"' class='smallLink' target='_blank'>UCSC</a>, " +
@@ -615,25 +615,42 @@
                   "</td>" +
                     (scores.is_pangolin ?
                             "<td>Splice Loss</td><td "+getScoreStyle(scores.DS_SL, true)+">" + formatScore(scores.DS_SL) +"</td><td>" + (scores.DS_SL == 0 ? "" : scores.DP_SL+" bp") + "</td>"+
-                            "</tr><tr style='background-color:" + background_color+"'>"+
+                            "</tr><tr>"+
                             "<td>Splice Gain</td><td "+getScoreStyle(scores.DS_SG, true)+">" + formatScore(scores.DS_SG) +"</td><td>" + (scores.DS_SG == 0 ? "" : scores.DP_SG+" bp") + "</td>"
                         :
                             "<td>Acceptor Loss</td><td "+getScoreStyle(scores.DS_AL, true)+">" + formatScore(scores.DS_AL) +"</td><td>" + ((scores.DS_AL == 0 && scores.DS_AL_REF == 0 && scores.DS_AL_ALT == 0)? "" : scores.DP_AL+" bp") + "</td><td "+getScoreStyle(scores.DS_AL_REF)+">" + formatScore(scores.DS_AL_REF) + "</td><td "+getScoreStyle(scores.DS_AL_ALT)+">" + formatScore(scores.DS_AL_ALT) + "</td>"+
-                            "</tr><tr style='background-color:" + background_color+"'>"+
+                            "</tr><tr>"+
                             "<td>Donor Loss</td><td "+getScoreStyle(scores.DS_DL, true)+">" + formatScore(scores.DS_DL) +"</td><td>" + ((scores.DS_DL == 0 && scores.DS_DL_REF == 0 && scores.DS_DL_ALT == 0)? "" : scores.DP_DL+" bp") + "</td><td "+getScoreStyle(scores.DS_DL_REF)+">" + formatScore(scores.DS_DL_REF) + "</td><td "+getScoreStyle(scores.DS_DL_ALT)+">" + formatScore(scores.DS_DL_ALT) + "</td>"+
-                            "</tr><tr style='background-color:" + background_color+"'>"+
+                            "</tr><tr>"+
                             "<td>Acceptor Gain</td><td "+getScoreStyle(scores.DS_AG, true)+">" + formatScore(scores.DS_AG) +"</td><td>" + ((scores.DS_AG == 0 && scores.DS_AG_REF == 0 && scores.DS_AG_ALT == 0)? "" : scores.DP_AG+" bp") + "</td><td "+getScoreStyle(scores.DS_AG_REF)+">" + formatScore(scores.DS_AG_REF) + "</td><td "+getScoreStyle(scores.DS_AG_ALT)+">" + formatScore(scores.DS_AG_ALT) + "</td>"+
-                            "</tr><tr style='background-color:" + background_color+"'>"+
+                            "</tr><tr>"+
                             "<td>Donor Gain</td><td "+getScoreStyle(scores.DS_DG, true)+">" + formatScore(scores.DS_DG) +"</td><td>" + ((scores.DS_DG == 0 && scores.DS_DG_REF == 0 && scores.DS_DG_ALT == 0)? "" : scores.DP_DG+" bp") + "</td><td "+getScoreStyle(scores.DS_DG_REF)+">" + formatScore(scores.DS_DG_REF) + "</td><td "+getScoreStyle(scores.DS_DG_ALT)+">" + formatScore(scores.DS_DG_ALT) + "</td>"
                     ) +
-                  "</tr>"
+                  "</tr></tbody>"
 
                 if(scores.is_pangolin) {
-                    result = "<tr><td style='white-space: nowrap'><b>Pangolin scores: <a href='https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02664-4' target='_blank'><i class='question circle outline icon' data-position='right center' data-content='Pangolin scores are computed on the server by running the Pangolin model with the user-selected parameters (ie. max distance).'></i></a></b> </td><td></td><td></td><td></td><td></td></tr>" + result
+                    result = "<tbody class='transcript_toggle'>" +
+                        "<tr><td colspan='8'><button id='codingToggle' class='ui button toggle' onclick='buttonToggle(\"coding\")'>Show non-canonical transcripts</button>" +
+                        "<button id='noncodingToggle' class='ui button toggle' onclick='buttonToggle(\"noncoding\")'>Show noncoding transcripts</button></td></tr></tbody>" +
+                        "<tr><td colspan='6' style='white-space: nowrap'><b>Pangolin scores: <a href='https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02664-4' target='_blank'><i class='question circle outline icon' data-position='right center' data-content='Pangolin scores are computed on the server by running the Pangolin model with the user-selected parameters (ie. max distance).'></i></a></b> </td></tr>" + result
                 }
                 return result
               }).join("") +
           "</table>"
+      }
+
+      function buttonToggle(variable) {
+          if (variable == "coding") {
+              $(".coding").toggle()
+              var elem = document.getElementById("codingToggle");
+              if (elem.innerText=="Show non-canonical transcripts") elem.innerText = "Hide non-canonical transcripts";
+              else elem.innerText = "Show non-canonical transcripts";
+          } else {
+              $(".noncoding").toggle()
+              var elem = document.getElementById("noncodingToggle");
+              if (elem.innerText=="Show noncoding transcripts") elem.innerText = "Hide noncoding transcripts";
+              else elem.innerText = "Show noncoding transcripts";
+          }
       }
 
       $.urlParam = function (name) {
@@ -735,6 +752,16 @@
               $("#response-box").html(generateResultsTable(response))
               $("#response-box").show()
               $("#survey").hide()
+              $(".coding").hide()
+              $(".noncoding").hide()
+
+              
+              if (document.getElementsByClassName("noncoding").length == 0) {
+                  $("#noncodingToggle").addClass("disabled")
+              }
+              if (document.getElementsByClassName("coding").length == 0) {
+                $("#noncanonicalToggle").addClass("disabled")
+              }
 
               // set url
               window.location.hash = "#" + $.param({
