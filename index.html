@@ -546,7 +546,7 @@
               "<td style='white-space: nowrap'><b>pre-mRNA position</b>  "+ "<i class='question circle outline icon' data-content='For each variant, SpliceAI looks within a window (+/- 500bp by default) to see how the variant affects the probabilities of different positions in the pre-mRNA being splice acceptors or donors. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are upstream (5&#039;) of the variant, and positive are downstream (3&#039;) of the variant.'></i>"+"</td>" +
               "<td style='white-space: nowrap'><b>REF score</b>  "+ "<i class='question circle outline icon' data-content=\"SpliceAI's computed probability that the given pre-mRNA position is a splice acceptor or donor based on the reference haplotype sequence. SpliceAI computes delta scores by taking the difference between the REF and ALT score at each position.\"></i>"+"</td>" +
               "<td style='white-space: nowrap'><b>ALT score</b>  "+ "<i class='question circle outline icon' data-content=\"SpliceAI's computed probability that the given pre-mRNA position is a splice acceptor or donor based on the alternate haplotype sequence. SpliceAI computes delta scores by taking the difference between the REF and ALT score at each position.\"></i>"+"</td>" +
-          "</tr>" + parsed_scores_or_errors.map(function(scores_or_error) {
+          "</tr>" + parsed_scores_or_errors.map(function(scores_or_error, index) {
                 if (scores_or_error.error) {
                     return "<tr>" +
                         "<td colspan='7'>" +
@@ -597,7 +597,9 @@
                     scores.DS_DG_ALT = Math.round(scores.DS_DG_ALT * 100) / 100
                 }
 
-                let result= "<tbody class='" +  (is_canonical_transcript || scores.is_pangolin  ? "canonical": (is_protein_coding ? "coding" : "noncoding")) + "' style='background-color:" + background_color + "'><tr class='upperBorder'>" +
+                let result= "<tbody id='transcript_" + index + "' class='" + (is_canonical_transcript || scores.is_pangolin  ? "canonical": "noncanonical") +
+                  (scores.is_pangolin ? " dsSL_" + scores.DS_SL + " dsSG_" + scores.DS_SG : " dsAL_" + scores.DS_AL + " dsDL_" + scores.DS_DL + " dsAG_" + scores.DS_AG + " dsDG_" + scores.DS_DG) +
+                  "' style='background-color:" + background_color + "'><tr class='upperBorder'>" +
                   "<td rowspan='" + (scores.is_pangolin ? 2: 4) + "' style='vertical-align: top'>" +
                   "<div style='margin-right:10px; display: inline-block'>" + scores.variant + "</div><br class='only-large-screen'/><br class='only-large-screen'/>" +
                     "<a href='"+variant_ucsc_url+"' class='smallLink' target='_blank'>UCSC</a>, " +
@@ -628,29 +630,35 @@
                     ) +
                   "</tr></tbody>"
 
-                if(scores.is_pangolin) {
+                  if(scores.is_pangolin) {
                     result = "<tbody class='transcript_toggle'>" +
-                        "<tr><td colspan='8'><button id='codingToggle' class='ui button toggle' onclick='buttonToggle(\"coding\")'>Show non-canonical transcripts</button>" +
-                        "<button id='noncodingToggle' class='ui button toggle' onclick='buttonToggle(\"noncoding\")'>Show noncoding transcripts</button></td></tr></tbody>" +
-                        "<tr><td colspan='6' style='white-space: nowrap'><b>Pangolin scores: <a href='https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02664-4' target='_blank'><i class='question circle outline icon' data-position='right center' data-content='Pangolin scores are computed on the server by running the Pangolin model with the user-selected parameters (ie. max distance).'></i></a></b> </td></tr>" + result
+                        "<tr><td colspan='8' style='padding: 10px 0px 50px 0px'><div class='ui buttons'><button id='canonicalToggle' class='ui button' onclick='buttonToggle(\"canonical\")'>Canonical</button><div class='or'></div>" +
+                        "<span id='diffScoreToggle_span'><button id='diffScoreToggle' class='ui button' onclick='buttonToggle(\"diffScore\")'>Differing Scores</button></span><div class='or'></div>" +
+                        "<span id='noncanonicalToggle_span'><button id='noncanonicalToggle' class='ui button' onclick='buttonToggle(\"noncanonical\")'>All Transcripts</button></span></div>" +
+                        "</td></tr></tbody>" +
+                        "<tr class='pangolin_header'><td colspan='6' style='white-space: nowrap'><b>Pangolin scores: <a href='https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02664-4' target='_blank'><i class='question circle outline icon' data-position='right center' data-content='Pangolin scores are computed on the server by running the Pangolin model with the user-selected parameters (ie. max distance).'></i></a></b> </td></tr>" + result
                 }
                 return result
               }).join("") +
           "</table>"
       }
 
-      function buttonToggle(variable) {
-          if (variable == "coding") {
-              $(".coding").toggle()
-              var elem = document.getElementById("codingToggle");
-              if (elem.innerText=="Show non-canonical transcripts") elem.innerText = "Hide non-canonical transcripts";
-              else elem.innerText = "Show non-canonical transcripts";
-          } else {
-              $(".noncoding").toggle()
-              var elem = document.getElementById("noncodingToggle");
-              if (elem.innerText=="Show noncoding transcripts") elem.innerText = "Hide noncoding transcripts";
-              else elem.innerText = "Show noncoding transcripts";
-          }
+      function buttonToggle(category) {
+        $("#canonicalToggle").removeClass("primary")
+        $("#diffScoreToggle").removeClass("primary")
+        $("#noncanonicalToggle").removeClass("primary")
+        
+        if (category == "canonical") {
+          $(".noncanonical").hide()
+          $("#canonicalToggle").addClass("primary")
+        } else if (category == "diffScore") {
+          $(".noncanonical").hide()
+          $(".diffScore").show()
+          $("#diffScoreToggle").addClass("primary")
+        } else if (category == "noncanonical") {
+          $(".noncanonical").show()
+          $("#noncanonicalToggle").addClass("primary")
+        }
       }
 
       $.urlParam = function (name) {
@@ -752,16 +760,59 @@
               $("#response-box").html(generateResultsTable(response))
               $("#response-box").show()
               $("#survey").hide()
-              $(".coding").hide()
-              $(".noncoding").hide()
+              $(".noncanonical").hide()
+              $("#canonicalToggle").addClass("primary")
 
-              
-              if (document.getElementsByClassName("noncoding").length == 0) {
-                  $("#noncodingToggle").addClass("disabled")
-              }
-              if (document.getElementsByClassName("coding").length == 0) {
+              if (document.getElementsByClassName("noncanonical").length == 0) {
                 $("#noncanonicalToggle").addClass("disabled")
+                $("#noncanonicalToggle_span").addClass("singleTranscript");
+                $("#diffScoreToggle").addClass("disabled");
+                $("#diffScoreToggle_span").addClass("singleTranscript");
+
+                $(".singleTranscript")
+                  .popup({
+                    content : 'Only one transcript reported',
+                    position: 'top center'
+                  })
+              } else {
+                const canonical = []
+
+                Array.from(document.getElementsByClassName("canonical")[0].children).forEach(function(item, index) {
+                  if (item.classList.contains("upperBorder")) {
+                    canonical[index] = item.children[3].innerText
+                  } else { 
+                    canonical[index] = item.children[1].innerText
+                  }})
+                
+                Array.from(document.getElementsByClassName("noncanonical")).forEach(function(item) {
+                  Array.from(item.children).forEach(function(entry, index) {
+                    if(!item.classList.contains("diffScore")) {
+                      if (entry.classList.contains("upperBorder")) {
+                        if (entry.children[3].innerText != canonical[index]) {
+                          $("#" + item.id).addClass("diffScore")
+                          console.log("matched")
+                        }
+                      } else if (entry.children[1].innerText != canonical[index]) {
+                        $("#" + item.id).addClass("diffScore")
+                        console.log("matched")
+                      }}
+                    })
+                });
+
+                if (document.getElementsByClassName("diffScore").length == 0) {
+                    $("#diffScoreToggle").addClass("disabled");
+                    $("#diffScoreToggle_span").addClass("use");
+
+                $('#diffScoreToggle_span.use')
+                  .popup({
+                    content : 'All transcripts have the same scores',
+                    position: 'top center'
+                  })
+                }
               }
+
+              $('.transcript_toggle').eq(0).show(); // show only first occurence of transcript toggle buttons
+              $('.pangolin_header').eq(0).show(); // show only first occurence of pangolin header
 
               // set url
               window.location.hash = "#" + $.param({
