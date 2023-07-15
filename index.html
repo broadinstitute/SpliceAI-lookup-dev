@@ -598,7 +598,6 @@
                 }
 
                 let result= "<tbody id='transcript_" + index + "' class='" + (is_canonical_transcript || scores.is_pangolin  ? "canonical": "noncanonical") +
-                  (scores.is_pangolin ? " dsSL_" + scores.DS_SL + " dsSG_" + scores.DS_SG : " dsAL_" + scores.DS_AL + " dsDL_" + scores.DS_DL + " dsAG_" + scores.DS_AG + " dsDG_" + scores.DS_DG) +
                   "' style='background-color:" + background_color + "'><tr class='upperBorder'>" +
                   "<td rowspan='" + (scores.is_pangolin ? 2: 4) + "' style='vertical-align: top'>" +
                   "<div style='margin-right:10px; display: inline-block'>" + scores.variant + "</div><br class='only-large-screen'/><br class='only-large-screen'/>" +
