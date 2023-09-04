@@ -18,24 +18,56 @@
       gtag('config', 'UA-172722632-1');
     </script>
     <style>
+        :root {
+          --CANONICAL_TRANSCRIPT_BACKGROUND_COLOR: #eaf3ff;
+          --CODING_TRANSCRIPT_BACKGROUND_COLOR: white;
+          --NON_CODING_TRANSCRIPT_BACKGROUND_COLOR: #e5e5e5;
+        }
+
+        .spliceai.coding {
+          background-color: var(--CODING_TRANSCRIPT_BACKGROUND_COLOR);
+        }
+
+        .spliceai.noncoding {
+          background-color: var(--NON_CODING_TRANSCRIPT_BACKGROUND_COLOR);
+        }
+
+        .spliceai.canonical {
+          background-color: var(--CANONICAL_TRANSCRIPT_BACKGROUND_COLOR);
+        }
+
         body {
             overflow-x: scroll;
         }
+
         body, .ui.form, label {
             font-size: 11pt !important;
         }
+
         td {
             padding: 5px 15px;
         }
+
         .upperBorder {
             border-top: 1px solid black;
         }
+
+        #pangolin_header th {
+          border-top: 1px solid rgba(34,36,38,.15);
+        }
+
         table {
             font-size: 11pt !important;
             border-collapse: collapse;
             border-left: 0px !important;
             border-right: 0px !important;
+            width: 100%;
         }
+
+        th div {
+          font-weight: normal;
+        }
+
         .smallLink {
             font-size: 10pt;
             margin-left: 5px;
@@ -239,20 +271,23 @@
                     <br />
                     <!-- <<div><i>What's New</i></div>
                     <br /> -->
+                    <b>Sep 4, 2023</b><br />
+                    - added transcript toggling to simplify SpliceAI transcript output.<br />
+                    <br />
                     <b>May 22, 2023</b><br />
                     - changed defaults to 'masked' and max distance to 500bp<br />
                     - retired <b>Illumina precomputed scores</b> since they were created using Gencode v24
                     and max distance = 50bp and so can differ from computed scores which are based on the latest Gencode.<br />
-                    <br />
-                    <b>May 12, 2023</b><br />
-                    - added REF & ALT score columns to show SpliceAI's underlying predictions for each haplotype (using <a href="https://github.com/Illumina/SpliceAI/pull/92">SpliceAI PR by @h-joshi</a>).
-                    The &#916;&nbsp; score column is the difference between these two scores.<br />
-                    - added support for MNPs (see <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/1">issue #1</a> & <a href="https://github.com/Illumina/SpliceAI/pull/119">SpliceAI PR by @kdahlo</a>)<br />
-                    - updated to <a href="https://www.gencodegenes.org/human/releases.html">Gencode v43</a> (was previously on v42)<br />
+                  
 		            <br />
 
                     <a id="more-details3-button" href="#" onclick="$('#more-details3').show();$('#more-details3-button').hide();">[show older updates]</a>
                     <div id="more-details3" style="display:none">
+                      <b>May 12, 2023</b><br />
+                      - added REF & ALT score columns to show SpliceAI's underlying predictions for each haplotype (using <a href="https://github.com/Illumina/SpliceAI/pull/92">SpliceAI PR by @h-joshi</a>).
+                      The &#916;&nbsp; score column is the difference between these two scores.<br />
+                      - added support for MNPs (see <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/1">issue #1</a> & <a href="https://github.com/Illumina/SpliceAI/pull/119">SpliceAI PR by @kdahlo</a>)<br />
+                      - updated to <a href="https://www.gencodegenes.org/human/releases.html">Gencode v43</a> (was previously on v42)<br />
                         <b>May 10, 2023</b><br />
                         - fixed bug where "raw" Pangolin scores were shown regardless of whether the user selected "raw" or "masked".<br />
                         <br />
@@ -286,7 +321,43 @@
           <div class="fourteen wide column">
               <div class="results-div">
                   <div id="error-box" style="color:darkred"></div>
-                  <div id="response-box"></div>
+                  <div id="response-box">
+                    <table id="scores-box" class="ui stackable table">
+                      <thead id="spliceai_header">
+                        <tr><th style="background-color: white;" colspan='7'>SpliceAI scores: <a href="https://www.cell.com/cell/pdf/S0092-8674(18)31629-5.pdf" target="_blank"><i class='question circle outline icon' data-position='right center' data-content='SpliceAI scores are computed for each transcript on the server by running the SpliceAI model with the user-selected parameters (ie. max distance).'></i></a></th></tr>
+                        <tr>
+                          <th>Variant</th>
+                          <th>Gene<div style='float:right;'>
+                            <span class='transcript-color-legend' style='background-color: var(--CANONICAL_TRANSCRIPT_BACKGROUND_COLOR)!important'>&nbsp;</span> = canonical transcript
+                            <span class='transcript-color-legend' style='background-color: var(--NON_CODING_TRANSCRIPT_BACKGROUND_COLOR)!important'>&nbsp;</span> = non-coding transcript
+                          </th>
+                          <th>&#916;&nbsp; type</th>
+                          <th style='white-space: nowrap'>&#916;&nbsp; score<i class='question circle outline icon' data-content='Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). In the SpliceAI paper, a detailed characterization is provided for 0.2 (high recall), 0.5 (recommended), and 0.8 (high precision) cutoffs. Consequently, scores of 0.2 or higher appear in green, 0.5 or higher appear in yellow, and 0.8 or higher appear in red.'></i></th>
+                          <th style='white-space: nowrap'>pre-mRNA position<i class='question circle outline icon' data-content='For each variant, SpliceAI looks within a window (+/- 500bp by default) to see how the variant affects the probabilities of different positions in the pre-mRNA being splice acceptors or donors. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are upstream (5&#039;) of the variant, and positive are downstream (3&#039;) of the variant.'></i></th>
+                          <th style='white-space: nowrap'>REF score<i class='question circle outline icon' data-content="SpliceAI's computed probability that the given pre-mRNA position is a splice acceptor or donor based on the reference haplotype sequence. SpliceAI computes delta scores by taking the difference between the REF and ALT score at each position."></i></th>
+                          <th style='white-space: nowrap'>ALT score<i class='question circle outline icon' data-content="SpliceAI's computed probability that the given pre-mRNA position is a splice acceptor or donor based on the alternate haplotype sequence. SpliceAI computes delta scores by taking the difference between the REF and ALT score at each position."></i></th>
+                        </tr>
+                      </thead>
+                      <tbody class='transcript_toggle'>
+                        <tr><td colspan='7' style='padding: 10px 0px 50px 0px'><div class='ui buttons'><button id='canonicalToggle' class='ui button' onclick='buttonToggle("canonical")'>Canonical</button><div class='or'></div>
+                        <span id='diffScoreToggle_span'><button id='diffScoreToggle' class='ui button' onclick='buttonToggle("diffScore")'>Transcripts with Differing Scores</button></span><div class='or'></div>
+                        <span id='noncanonicalToggle_span'><button id='noncanonicalToggle' class='ui button' onclick='buttonToggle("noncanonical")'>All Transcripts</button></span></div>
+                        </td></tr></tbody>
+                      <thead id="pangolin_header">
+                        <tr><th style="background-color: white;" colspan='7'>Pangolin scores: <a href='https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02664-4' target='_blank'><i class='question circle outline icon' data-position='right center' data-content='Pangolin scores are computed for each transcript on the server by running the SpliceAI model with the user-selected parameters (ie. max distance).'></i></a></th></tr>
+                        <tr>
+                          <th>Variant</th>
+                          <th>Gene<div style='float:right;'>
+                          </th>
+                          <th>&#916;&nbsp; type</th>
+                          <th style='white-space: nowrap'>&#916;&nbsp; score<i class='question circle outline icon' data-content='Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). Pangolin does not recommend specific score thresholds; however, here scores of 0.2 or higher appear in green, 0.5 or higher appear in yellow, and 0.8 or higher appear in red.'></i></th>
+                          <th style='white-space: nowrap'>pre-mRNA position<i class='question circle outline icon' data-content='For each variant, Pangolin looks within a window (+/- 500bp by default) to see how the variant affects the probabilities of different positions in the pre-mRNA being splice sites. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are upstream (5&#039;) of the variant, and positive are downstream (3&#039;) of the variant.'></i></th>
+                          <th style='white-space: nowrap'>REF score<i class='question circle outline icon' data-content="Working on it!"></i></th>
+                          <th style='white-space: nowrap'>ALT score<i class='question circle outline icon' data-content="Working on it!"></i></th>
+                        </tr>
+                      </thead>
+                    </table>
+                </div>
               </div>
           </div>
           <div class="one wide column only-large-screen"></div>
@@ -367,10 +438,6 @@
       const SPLICEAI_SCORE_FIELDS = "SYMBOL|DS_AG|DS_AL|DS_DG|DS_DL|DP_AG|DP_AL|DP_DG|DP_DL|DS_AG_REF|DS_AG_ALT|DS_AL_REF|DS_AL_ALT|DS_DG_REF|DS_DG_ALT|DS_DL_REF|DS_DL_ALT".split("|")
       const PANGOLIN_SCORE_FIELDS = "SYMBOL|DS_SG|DS_SL|DP_SG|DP_SL".split("|")  // splice_gain_score, splice_loss_score, splice_gain_pos, splice_loss_pos
 
-      const CANONICAL_TRANSCRIPT_BACKGROUND_COLOR = "#eaf3ff"
-      const CODING_TRANSCRIPT_BACKGROUND_COLOR = "white"
-      const NON_CODING_TRANSCRIPT_BACKGROUND_COLOR = "#e5e5e5"
-
       function parseVariant(variant) {
         const m = variant.match(VARIANT_RE)
         if (m) {
@@ -385,7 +452,6 @@
 
         return null
       }
-
 
       function parseVariantToHGVS(variant, genome_version) {
         const m = variant.match(VARIANT_RE)
@@ -421,6 +487,20 @@
         return variant
       }
 
+      function variantType(ref, alt) {
+        if (ref.length > 1 && alt.length > 1) {
+            variant_type = "MNV"
+          } else if (ref.length == alt.length) {
+            variant_type = "SNV"
+          } else if (ref.length > alt.length) {
+            variant_type = "DEL"
+          } else if (ref.length < alt.length) {
+            variant_type = "INS"
+          }
+
+          return variant_type
+      }
+
       function formatScore(score) {
           if (score == null || isNaN(score)) {
               return ""
@@ -430,13 +510,11 @@
       }
 
       function getScoreStyle(score, isDeltaScore) {
-        if (typeof isDeltaScore === 'undefined') {
-          isDeltaScore = false;
-        }
         score = parseFloat(score)
-        if (score == 0) {
-          return "style='color:#BBBBBB'"
+        if (typeof isDeltaScore === 'undefined') {
+          return
         }
+        
         const opacity = isDeltaScore ? 1 : 0.3;
         const RED_BACKGROUND = "rgba(252, 207, 184, " + opacity + ")"       // #fccfb8
         const YELLOW_BACKGROUND = "rgba(255, 241, 157, " + opacity + ")" //fff19d
@@ -461,72 +539,70 @@
         return "https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg" + genome_version + "&position=chr" + chrom + ":" + pos
       }
 
-      function generateResultsTable(responses) {
-
+      function generateResultsTable(response) {
         let parsed_scores_or_errors = []
-        responses.filter(r => r).forEach(function(response) {
-            const is_pangolin = response.source && response.source.startsWith("pangolin")
-            if (response.error) {
-                parsed_scores_or_errors.push({
-                    'error': response.error,
-                    'source': response.source,
-                    'is_pangolin': is_pangolin,
-                    'hg': response.hg,
-                    'variant': response.variant,
-                    'sort_key': 0,
-                })
-                return
+        // responses = responses.filter(r => r) // what does this filter do?
+        const is_pangolin = response.source && response.source.startsWith("pangolin")
+        const is_spliceai = response.source && response.source.startsWith("spliceai")
+        if (response.error) {
+            parsed_scores_or_errors.push({
+                'error': response.error,
+                'source': response.source,
+                'hg': response.hg,
+                'variant': response.variant,
+                'sort_key': 0,
+            })
+            return
+        }
+        
+        response.scores.forEach(function(scores) {
+            const splice_prediction_values = scores.split("|")
+            const splice_prediction_dict = {};
+
+            (is_pangolin ? PANGOLIN_SCORE_FIELDS : SPLICEAI_SCORE_FIELDS).forEach(function(k, i) {
+                splice_prediction_dict[k] = splice_prediction_values[i]
+                if (k.startsWith("DS_")) {
+                    splice_prediction_dict[k] = Math.abs(parseFloat(splice_prediction_dict[k]))
+                }
+            })
+
+            const score_types = is_pangolin ? ["SG", "SL"] : ["DG", "DL", "AG", "AL"]
+            // score_types.forEach(function(score_type) {
+            //     try {
+            //         splice_prediction_dict[score_type + "_url"] = getUCSCBrowserUrl(response.hg, response.chrom, response.pos + parseInt(splice_prediction_dict["DP_" + score_type]))
+            //     } catch(e) {
+            //         splice_prediction_dict[score_type + "_url"] = "#"
+            //     }
+            // })
+
+            try {
+                splice_prediction_dict["url"] = getUCSCBrowserUrl(response.hg, response.chrom, response.pos)
+            } catch(e) {
+                splice_prediction_dict["url"] = "#"
             }
 
-            response.scores.forEach(function(scores) {
-                const splice_prediction_values = scores.split("|")
-                const splice_prediction_dict = {};
+            splice_prediction_dict['source'] = response.source
+            splice_prediction_dict['is_pangolin'] = is_pangolin
+            splice_prediction_dict['hg'] = response.hg
+            splice_prediction_dict['variant'] = response.variant
 
-                (is_pangolin ? PANGOLIN_SCORE_FIELDS : SPLICEAI_SCORE_FIELDS).forEach(function(k, i) {
-                    splice_prediction_dict[k] = splice_prediction_values[i]
-                    if (k.startsWith("DS_")) {
-                        splice_prediction_dict[k] = Math.abs(parseFloat(splice_prediction_dict[k]))
-                    }
-                })
+            // compute sort key
+            const splice_prediction_tool = is_pangolin ? 1 : 0;
 
-                const score_types = is_pangolin ? ["SG", "SL"] : ["DG", "DL", "AG", "AL"]
-                score_types.forEach(function(score_type) {
-                    try {
-                        splice_prediction_dict[score_type + "_url"] = getUCSCBrowserUrl(response.hg, response.chrom, response.pos + parseInt(splice_prediction_dict["DP_" + score_type]))
-                    } catch(e) {
-                        splice_prediction_dict[score_type + "_url"] = "#"
-                    }
-                })
+            const gene_name_fields = (splice_prediction_dict["SYMBOL"] || "").split("---")
+            const gene_name = gene_name_fields[0]
+            const transcript_id = gene_name_fields.length >= 3 && gene_name_fields[2]
+            const is_canonical_transcript = (gene_name_fields.length >= 4 && gene_name_fields[3] === "yes") ? 0 : 1
+            const transcript_type = gene_name_fields.length >= 5 && gene_name_fields[4]
+            const is_protein_coding = !transcript_type || transcript_type == "protein_coding" ? 0 : 1
+            const refseq_transcript_id_is_in_query = gene_name_fields.length >= 6 && gene_name_fields[5] && gene_name_fields[5].split(",").some(refseq_transcript_id => response.raw.includes(refseq_transcript_id))
+            const contains_hgvs_transcript_id = response.raw.includes(transcript_id) || refseq_transcript_id_is_in_query ? 0 : 1;
 
-                try {
-                    splice_prediction_dict["url"] = getUCSCBrowserUrl(response.hg, response.chrom, response.pos)
-                } catch(e) {
-                    splice_prediction_dict["url"] = "#"
-                }
+            splice_prediction_dict['sort_key'] = `${splice_prediction_tool}${contains_hgvs_transcript_id}`
+            splice_prediction_dict['sort_key'] += `${is_protein_coding}${is_canonical_transcript}`
+            splice_prediction_dict['sort_key'] += `---${gene_name}`
 
-                splice_prediction_dict['source'] = response.source
-                splice_prediction_dict['is_pangolin'] = is_pangolin
-                splice_prediction_dict['hg'] = response.hg
-                splice_prediction_dict['variant'] = response.variant
-
-                // compute sort key
-                const splice_prediction_tool = is_pangolin ? 1 : 0;
-
-                const gene_name_fields = (splice_prediction_dict["SYMBOL"] || "").split("---")
-                const gene_name = gene_name_fields[0]
-                const transcript_id = gene_name_fields.length >= 3 && gene_name_fields[2]
-                const is_canonical_transcript = (gene_name_fields.length >= 4 && gene_name_fields[3] === "yes") ? 0 : 1
-                const transcript_type = gene_name_fields.length >= 5 && gene_name_fields[4]
-                const is_protein_coding = !transcript_type || transcript_type == "protein_coding" ? 0 : 1
-                const refseq_transcript_id_is_in_query = gene_name_fields.length >= 6 && gene_name_fields[5] && gene_name_fields[5].split(",").some(refseq_transcript_id => response.raw.includes(refseq_transcript_id))
-                const contains_hgvs_transcript_id = response.raw.includes(transcript_id) || refseq_transcript_id_is_in_query ? 0 : 1;
-
-                splice_prediction_dict['sort_key'] = `${splice_prediction_tool}${contains_hgvs_transcript_id}`
-                splice_prediction_dict['sort_key'] += `${is_protein_coding}${is_canonical_transcript}`
-                splice_prediction_dict['sort_key'] += `---${gene_name}`
-
-                parsed_scores_or_errors.push(splice_prediction_dict)
-            })
+            parsed_scores_or_errors.push(splice_prediction_dict)
         })
 
         //sort by (gene name, is canonical transcript, is non-coding transcriipt)
@@ -534,26 +610,8 @@
 
         console.log("Parsed scores:", parsed_scores_or_errors)
 
-        return "<table class='ui stackable table'>" +
-          "<tr>" +
-              "<td><b>variant</b></td>" +
-              "<td><b>gene</b><div style='float:right;'>" +
-                `<span class='transcript-color-legend' style='background-color:${CANONICAL_TRANSCRIPT_BACKGROUND_COLOR}!important'>&nbsp;</span> = canonical transcript ` +
-                `<span class='transcript-color-legend' style='background-color:${NON_CODING_TRANSCRIPT_BACKGROUND_COLOR}!important'>&nbsp;</span> = non-coding transcript` +
-              "</td>" +
-              "<td><b>&#916;&nbsp; type</b></td>" +
-              "<td style='white-space: nowrap'><b>&#916;&nbsp; score</b>  " + "<i class='question circle outline icon' data-content='Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). In the SpliceAI paper, a detailed characterization is provided for 0.2 (high recall), 0.5 (recommended), and 0.8 (high precision) cutoffs. Consequently, scores of 0.2 or higher appear in green, 0.5 or higher appear in yellow, and 0.8 or higher appear in red.'></i>"+"</td>" +
-              "<td style='white-space: nowrap'><b>pre-mRNA position</b>  "+ "<i class='question circle outline icon' data-content='For each variant, SpliceAI looks within a window (+/- 500bp by default) to see how the variant affects the probabilities of different positions in the pre-mRNA being splice acceptors or donors. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are upstream (5&#039;) of the variant, and positive are downstream (3&#039;) of the variant.'></i>"+"</td>" +
-              "<td style='white-space: nowrap'><b>REF score</b>  "+ "<i class='question circle outline icon' data-content=\"SpliceAI's computed probability that the given pre-mRNA position is a splice acceptor or donor based on the reference haplotype sequence. SpliceAI computes delta scores by taking the difference between the REF and ALT score at each position.\"></i>"+"</td>" +
-              "<td style='white-space: nowrap'><b>ALT score</b>  "+ "<i class='question circle outline icon' data-content=\"SpliceAI's computed probability that the given pre-mRNA position is a splice acceptor or donor based on the alternate haplotype sequence. SpliceAI computes delta scores by taking the difference between the REF and ALT score at each position.\"></i>"+"</td>" +
-          "</tr>" + parsed_scores_or_errors.map(function(scores_or_error, index) {
-                if (scores_or_error.error) {
-                    return "<tr>" +
-                        "<td colspan='7'>" +
-                            "<div style='color:darkred'>" + ( scores_or_error.is_pangolin ? 'Pangolin ' : 'SpliceAI ' ) + scores_or_error.error + "</div>" +
-                        "</td>" +
-                    "</tr>"
-                }
+        return parsed_scores_or_errors.map(function(scores_or_error, index) {
+                
                 let scores = scores_or_error
                 const variant_ucsc_url = scores.url
                 const gnomAD_version = scores.hg === "38"? "gnomad_r3" : "gnomad_r2_1"
@@ -565,9 +623,6 @@
                 const transcript_type = gene_name_fields.length >= 5 && gene_name_fields[4]
                 const is_protein_coding = !transcript_type || transcript_type == "protein_coding"
                 const refseq_transcript_ids = gene_name_fields.length >= 6 && gene_name_fields[5] && gene_name_fields[5].split(",")
-                const background_color = !is_protein_coding ? NON_CODING_TRANSCRIPT_BACKGROUND_COLOR : (
-                    is_canonical_transcript ? CANONICAL_TRANSCRIPT_BACKGROUND_COLOR : CODING_TRANSCRIPT_BACKGROUND_COLOR
-                )
 
                 let gene_and_transcript_id = ""
                 if (gene_name_fields.length >= 3 ) {
@@ -597,10 +652,11 @@
                     scores.DS_DG_ALT = Math.round(scores.DS_DG_ALT * 100) / 100
                 }
 
-                let result= "<tbody id='transcript_" + index + "' class='" + (is_canonical_transcript || scores.is_pangolin  ? "canonical": "noncanonical") +
-                  "' style='background-color:" + background_color + "'><tr class='upperBorder'>" +
+                result_classes = (scores.is_pangolin ? "pangolin" : (is_canonical_transcript ? "spliceai canonical" : (is_protein_coding ?  "spliceai noncanonical coding": "spliceai noncanonical noncoding")))
+
+                let result= "<tbody id='transcript_" + index + "' class='" + result_classes + "'><tr class='upperBorder'>" +
                   "<td rowspan='" + (scores.is_pangolin ? 2: 4) + "' style='vertical-align: top'>" +
-                  "<div style='margin-right:10px; display: inline-block'>" + scores.variant + "</div><br class='only-large-screen'/><br class='only-large-screen'/>" +
+                  "<div style='margin-right:10px;" + (variant_type == 'SNV' ? ' white-space: nowrap;' : '') + "' display: inline-block'>" + scores.variant + "</div><br class='only-large-screen'/><br class='only-large-screen'/>" +
                     "<a href='"+variant_ucsc_url+"' class='smallLink' target='_blank'>UCSC</a>, " +
                     "<a href='"+variant_gnomAD_url+"' class='smallLink' target='_blank'>gnomAD</a>" +
                   "</td>"+
@@ -629,14 +685,6 @@
                     ) +
                   "</tr></tbody>"
 
-                  if(scores.is_pangolin) {
-                    result = "<tbody class='transcript_toggle'>" +
-                        "<tr><td colspan='8' style='padding: 10px 0px 50px 0px'><div class='ui buttons'><button id='canonicalToggle' class='ui button' onclick='buttonToggle(\"canonical\")'>Canonical</button><div class='or'></div>" +
-                        "<span id='diffScoreToggle_span'><button id='diffScoreToggle' class='ui button' onclick='buttonToggle(\"diffScore\")'>Differing Scores</button></span><div class='or'></div>" +
-                        "<span id='noncanonicalToggle_span'><button id='noncanonicalToggle' class='ui button' onclick='buttonToggle(\"noncanonical\")'>All Transcripts</button></span></div>" +
-                        "</td></tr></tbody>" +
-                        "<tr class='pangolin_header'><td colspan='6' style='white-space: nowrap'><b>Pangolin scores: <a href='https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02664-4' target='_blank'><i class='question circle outline icon' data-position='right center' data-content='Pangolin scores are computed on the server by running the Pangolin model with the user-selected parameters (ie. max distance).'></i></a></b> </td></tr>" + result
-                }
                 return result
               }).join("") +
           "</table>"
@@ -648,14 +696,14 @@
         $("#noncanonicalToggle").removeClass("primary")
         
         if (category == "canonical") {
-          $(".noncanonical").hide()
+          $(".spliceai.noncanonical").hide()
           $("#canonicalToggle").addClass("primary")
         } else if (category == "diffScore") {
-          $(".noncanonical").hide()
-          $(".diffScore").show()
+          $(".spliceai.noncanonical").hide()
+          $(".spliceai.diffScore").show()
           $("#diffScoreToggle").addClass("primary")
         } else if (category == "noncanonical") {
-          $(".noncanonical").show()
+          $(".spliceai.noncanonical").show()
           $("#noncanonicalToggle").addClass("primary")
         }
       }
@@ -665,10 +713,82 @@
         return (results !== null) ? decodeURIComponent(results[1]) || 0 : false;
       }
 
+      function getSpliceAI(row, request) {
+        scores = []
+        positions = []
+        Array.from(row.children).forEach(function(item, index) {
+          if (item.classList.contains("upperBorder")) {
+            scores[index] = item.children[3].innerText
+            positions[index] = item.children[4].innerText
+          } else { 
+            scores[index] = item.children[1].innerText
+            positions[index] = item.children[2].innerText
+          }})
+        if (request == "scores") {
+          return scores
+        } else if (request == "positions") {
+          return positions
+        } else {
+          return [scores, positions]
+        }
+      }
+
+      function toggleSetUp(canonical) {
+        $(".noncanonical").hide()
+        $("#canonicalToggle").addClass("primary")
+        $("#noncanonicalToggle").removeClass("primary")
+        $("#diffScoreToggle").removeClass("primary")
+        $("#noncanonicalToggle").removeClass("disabled")
+        $("#diffScoreToggle").removeClass("disabled")
+        $("#noncanonicalToggle_span").removeClass()
+        $("#diffScoreToggle_span").removeClass()
+
+        $("#noncanonicalToggle_span").popup('destroy');
+        $('#diffScoreToggle_span').popup('destroy');
+    
+        if (document.getElementsByClassName("noncanonical").length == 0) {
+          $("#noncanonicalToggle").addClass("disabled")
+          $("#noncanonicalToggle_span").addClass("singleTranscript");
+          $("#diffScoreToggle").addClass("disabled");
+          $("#diffScoreToggle_span").addClass("singleTranscript");
+
+          $(".singleTranscript")
+            .popup({
+              content : 'Only one transcript reported',
+              position: 'top center'
+            })
+        } else {
+          Array.from(document.getElementsByClassName("noncanonical")).forEach(function(item) {
+            Array.from(item.children).forEach(function(entry, index) {
+              if(!item.classList.contains("diffScore")) {
+                if (entry.classList.contains("upperBorder")) {
+                  if (entry.children[3].innerText != canonical[index]) {
+                    $("#" + item.id).addClass("diffScore")
+                  }
+                } else if (entry.children[1].innerText != canonical[index]) {
+                  $("#" + item.id).addClass("diffScore")
+                }}
+              })
+          });
+
+          if (document.getElementsByClassName("diffScore").length == 0) {
+            $("#diffScoreToggle").addClass("disabled");
+            $("#diffScoreToggle_span")
+
+            $('#diffScoreToggle_span')
+              .popup({
+                content : 'All transcripts have the same scores',
+                position: 'top center'
+              })
+          }
+        }
+      }
+
       $(document).ready(function() {
         $('.ui.radio.checkbox').checkbox()
         $('.question').popup()
         $("#search-box").focus()
+        $("#response-box").hide()
 
         $("#search-box,#max-distance-input").keydown(function (event) {
           if ((event.keyCode || event.which) == 13) {
@@ -690,7 +810,9 @@
 
           $("#error-box").hide()
           $("#response-box").hide()
-
+          $(".spliceai").remove()
+          $(".pangolin").remove()
+          
           $("#submit-button").addClass(["loading", "disabled"])
 
           let ensembl_api_url_prefix = ""
@@ -700,7 +822,7 @@
 
           $.getJSON(
             "https://" + ensembl_api_url_prefix + "rest.ensembl.org/vep/human/hgvs/" + variant_hgvs + "?content-type=application/json&vcf_string=1"
-          ).catch(function(error) {
+            ).catch(function(error) {
             let errorText = error.responseText
             try {
               errorText = JSON.parse(errorText).error
@@ -727,6 +849,7 @@
             const pos = vcf_string[1]
             const ref = vcf_string[2]
             const alt = vcf_string[3]
+            const variant_type = variantType(ref, alt)
             const most_severe_consequence = (response[0].most_severe_consequence || "").replace(/_/g, " ")
 
             console.log("chrom:", chrom, "pos:", pos, "ref:", ref, "alt:", alt)
@@ -756,63 +879,16 @@
               console.log("pangolin API response was:", response[1])
 
               $("#error-box").hide()
-              $("#response-box").html(generateResultsTable(response))
               $("#response-box").show()
+              $("#spliceai_header").after(generateResultsTable(response[0]))
+              $("#pangolin_header").after(generateResultsTable(response[1]))
               $("#survey").hide()
-              $(".noncanonical").hide()
-              $("#canonicalToggle").addClass("primary")
 
-              if (document.getElementsByClassName("noncanonical").length == 0) {
-                $("#noncanonicalToggle").addClass("disabled")
-                $("#noncanonicalToggle_span").addClass("singleTranscript");
-                $("#diffScoreToggle").addClass("disabled");
-                $("#diffScoreToggle_span").addClass("singleTranscript");
+              document.getElementsByClassName("canonical")[0]
+              const canonical = getSpliceAI(document.getElementsByClassName("canonical")[0])
+              toggleSetUp(canonical[0])
 
-                $(".singleTranscript")
-                  .popup({
-                    content : 'Only one transcript reported',
-                    position: 'top center'
-                  })
-              } else {
-                const canonical = []
-
-                Array.from(document.getElementsByClassName("canonical")[0].children).forEach(function(item, index) {
-                  if (item.classList.contains("upperBorder")) {
-                    canonical[index] = item.children[3].innerText
-                  } else { 
-                    canonical[index] = item.children[1].innerText
-                  }})
-                
-                Array.from(document.getElementsByClassName("noncanonical")).forEach(function(item) {
-                  Array.from(item.children).forEach(function(entry, index) {
-                    if(!item.classList.contains("diffScore")) {
-                      if (entry.classList.contains("upperBorder")) {
-                        if (entry.children[3].innerText != canonical[index]) {
-                          $("#" + item.id).addClass("diffScore")
-                          console.log("matched")
-                        }
-                      } else if (entry.children[1].innerText != canonical[index]) {
-                        $("#" + item.id).addClass("diffScore")
-                        console.log("matched")
-                      }}
-                    })
-                });
-
-                if (document.getElementsByClassName("diffScore").length == 0) {
-                    $("#diffScoreToggle").addClass("disabled");
-                    $("#diffScoreToggle_span").addClass("use");
-
-                $('#diffScoreToggle_span.use')
-                  .popup({
-                    content : 'All transcripts have the same scores',
-                    position: 'top center'
-                  })
-                }
-              }
-
-              $('.transcript_toggle').eq(0).show(); // show only first occurence of transcript toggle buttons
-              $('.pangolin_header').eq(0).show(); // show only first occurence of pangolin header
-
+          
               // set url
               window.location.hash = "#" + $.param({
                   variant: variant,
