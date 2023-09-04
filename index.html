@@ -8,6 +8,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/underscore@1.12.0/underscore-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/igv@2.15.10/dist/igv.min.js"></script>
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-172722632-1"></script>
@@ -356,7 +357,24 @@
                           <!-- <b>Interpretation of Scores:</b> <i class='question circle outline icon' data-position='top center' data-content="Here is the interpretation of the SpliceAI score impact on the transcript of interest - you're welcome."></i> -->
                           <div id="interpretation-results"></div>
                         </div>
-                        
+                      </div>
+                      <div id="IGV_viewer" class="row ui placeholder segment" style="margin: 0; border-radius: 0;">
+                        <div id="IGV_buttons" class="four wide column">
+                          <div style="height: 32px; margin: 2px 0 6px 0; padding-top: 14px;"><b style="font-size: 20px;">IGV Controls</b></div>
+                          <p>Use these buttons to control the highlights on the IGV browser.</p>
+                          <button id='roi-load-variant' class="ui button">Show Variant</button>
+                          <button id='roi-load-spliceai' class="ui button">Show SpliceAI</button>
+                          <button id='roi-load-pangolin' class="ui button">Show Pangolin</button>
+                          <button id='roi-clear-button' class="ui button">Clear Highlights</button>
+                          
+                          <p>To create a custom highlight click and drag a region in the ruler area while holding down the Shift key.</p>
+                        </div>
+                        <div class="twelve wide column">
+                          <div id="igv-div" class="ui segment"></div>
+                        </div>
+                        </div>
+                        <div class="row" style="padding: 0;">
+                          <button id="IGV_toggle" class="sixteen wide column ui button" onclick="toggleIGV()" style="margin: 0; border-radius: 0 0 5px 5px;">Show IGV</button>
                       </div>
                     </div>
                     <table id="scores-box" class="ui stackable table">
@@ -767,6 +785,27 @@
         }
       }
 
+      function getPangolin(row, request) {
+        scores = []
+        positions = []
+        Array.from(row.children).forEach(function(item, index) {
+          if (item.classList.contains("upperBorder")) {
+            scores[index] = item.children[3].innerText
+            positions[index] = item.children[4].innerText
+          } else { 
+            scores[index] = item.children[1].innerText
+            positions[index] = item.children[2].innerText
+          }})
+        console.log(positions)
+        if (request == "scores") {
+          return scores
+        } else if (request == "positions") {
+          return positions
+        } else {
+          return [scores, positions]
+        }
+      }
+
       function interpret(tool, scores, threshold) {
         $("#interpretation-results").empty()
 
@@ -775,9 +814,11 @@
         console.log(SpliceAI_impact)
         
         adjust_message = "Adjusting the interpretation parameters (left) or the inital search parameters (above) may produce different results.<br />Keep in mind that this may lead to less accurate results if low thresholds are used."
-
+        
         if ( SpliceAI_impact[0] == "No scores above threshold" || SpliceAI_impact[0] == "Unusual score combination observed") {
           $( "#interpretation-results" ).append( "<div style='padding: 10px'><b>" + SpliceAI_impact[0] + "</b><br />" + adjust_message + "</div>");
+        } else if ( variant_type != "SNV" ) {
+          $( "#interpretation-results" ).append( "<div style='padding: 10px'><b>" + "Full interpretation not yet available for Indels and MNVs.</b><br />Quick result: " + SpliceAI_impact[0] + "</b></div>")
         } else {
           interpretation_header = "<table class='ui stackable table'><thead><tr><th></th><th>Predicted Splice Effect</th><th>Base Change</th><th>Amino Acid Change</th></tr></thead>"
           interpretation_results = ""
@@ -785,14 +826,13 @@
             results_array = getBaseChange(item, $("#selected_transcript").val())
             var flags = ""
             if (results_array[2] == "out-of-frame") {
-              flags = "<i class='question icon stop circle red large' data-content='Out-of-Frame' data-position='top center'></i>"
+              flags = "<i id='flag' class='question icon stop circle red large' data-content='Out-of-Frame' data-position='top center'></i>"
             }
 
             interpretation_results = interpretation_results + "<tbody><tr><td>" + flags + "</td><td>" + results_array[0] + "</td><td>" + results_array[1] + " bp" + "</td><td>" + Math.round(results_array[1]/3 * 10)/10 + "</td></tr></tbody>"
           }) 
           $( "#interpretation-results" ).append( interpretation_header + interpretation_results + "</table>");
         }
-          
         
       }
 
@@ -967,10 +1007,117 @@
         interpret("spliceai", $("#selected_transcript").val(), $("#threshold_input").val())
       }
 
+      function toggleIGV() {
+        $("#IGV_viewer").toggle()
+
+        if ($("#IGV_viewer").is(":visible")) {
+          document.getElementById("IGV_toggle").innerText = "Hide IGV";
+          if ($("#igv-div").is(':empty')) {
+            populateIGV(8, 140300616, 500, "38".replace('37', '19'), getSpliceAI(document.getElementsByClassName("canonical")[0]), getPangolin(document.getElementsByClassName("pangolin")[0]))
+          }
+        } else {
+          document.getElementById("IGV_toggle").innerText = "Show IGV";
+        }
+      }
+
+      function populateIGV(chrom, pos, distance, genome_version, spliceAI_results, pangolin_results) {
+        $("#igv-div").empty()
+        var color = "rgba(219, 61, 61, 0.5)";
+        var browser_config =
+        {
+            genome: "hg" + genome_version,
+            locus: "chr" + chrom + ':' + (pos - distance) + "-" + (pos - -distance),
+            tracks: [
+                {
+                    name: "REF SpliceAI",
+                    type: "annotation",
+                    format: "bed",
+                    url: "https://raw.githubusercontent.com/kidsneuro-lab/spliceai_es_scores/main/spliceai_es_scores.bed.gz",
+                    displayMode: "EXPANDED",
+                    color: "#ff0000",
+                }
+            ]
+        };
+
+        const variant_roi_config =
+        [
+                {
+                    name: "Variant",
+                    color: color,
+                    features: [
+                        {
+                            chr: "chr" + chrom,
+                            start: pos - 1,
+                            end: pos,
+                            description: "Variant of interest",
+                        }
+                    ]
+                }
+        ];
+
+        var spliceAI_DP_ROI = []
+        Array.from(spliceAI_results[1]).forEach(function(item, index) {
+          if(item != "") {
+            item = parseInt(item.split(" ")[0])
+            spliceAI_DP_ROI[index] = [
+                {
+                    name: index,
+                    color: "rgba(72,72,155,0.8)",
+                    features:
+                        [
+                            {
+                                chr: "chr" + chrom,
+                                start: parseInt(pos + item - 1),
+                                end: parseInt(pos + item),
+                            },
+                        ]
+                }
+              ]
+          }
+        });
+
+        var Pangolin_DP_ROI = []
+        Array.from(pangolin_results[1]).forEach(function(item_P, index_P) {
+          if(item_P != "") {
+            item_P = parseInt(item_P.split(" ")[0])
+            Pangolin_DP_ROI[index_P] = [
+                {
+                    name: index_P,
+                    color: "rgba(46,139,87,0.8)",
+                    features:
+                        [
+                            {
+                                chr: "chr" + chrom,
+                                start: parseInt(pos + item_P - 1),
+                                end: parseInt(pos + item_P),
+                            },
+                        ]
+                }
+              ]
+          }
+        });
+
+        (async () => {
+          const browser = await igv.createBrowser(document.getElementById('igv-div'), browser_config)
+          document.getElementById("roi-load-variant").addEventListener('click', () => browser.loadROI(variant_roi_config))
+          // document.getElementById("roi-load-button").addEventListener('click', () => browser.loadROI(roi_config))
+          document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[0]))
+          document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[1]))
+          document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[2]))
+          document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[3]))
+          document.getElementById("roi-load-pangolin").addEventListener('click', () => browser.loadROI(Pangolin_DP_ROI[0]))
+          document.getElementById("roi-load-pangolin").addEventListener('click', () => browser.loadROI(Pangolin_DP_ROI[1]))
+          document.getElementById("roi-clear-button").addEventListener('click', () => browser.clearROIs())
+          //document.getElementById("roi-clear-button").addEventListener('click', () => browser.clearROIs())
+          //getUserDefinedROIs()
+          
+          // const rois = await browser.getUserDefinedROIs()
+      })()
+    }
+
       $(document).ready(function() {
         $('.ui.radio.checkbox').checkbox()
         $('.question').popup()
-        $('.flag').popup()
         $("#search-box").focus()
         $("#response-box").hide()
 
@@ -1073,6 +1220,7 @@
               const canonical = getSpliceAI(document.getElementsByClassName("canonical")[0])
               toggleSetUp(canonical[0])
               interpretSetUp()
+              $("#IGV_viewer").hide()
           
               // set url
               window.location.hash = "#" + $.param({
