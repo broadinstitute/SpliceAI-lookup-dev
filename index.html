@@ -8,6 +8,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/underscore@1.12.0/underscore-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/igv@2.15.10/dist/igv.min.js"></script>
 
     <!-- Global site tag (gtag.js) - Google Analytics -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-172722632-1"></script>
@@ -101,6 +102,30 @@
                 width: 85vw;
                 position: relative;
             }
+        }
+
+        .stacked {
+          display: inline-block;
+          width: 50px;
+        }
+
+        .stacked .button {
+          height: 7px;
+          margin: 0px;
+        }
+
+        .stacked i {
+          position: relative;
+          top: -5px;
+        }
+
+        .igv-container {
+          width: 100%;
+        }
+
+        #IGV_buttons .button {
+          display: block;
+          margin: 5px 0px;
         }
 
     </style>
@@ -272,7 +297,8 @@
                     <!-- <<div><i>What's New</i></div>
                     <br /> -->
                     <b>Sep 4, 2023</b><br />
-                    - added transcript toggling to simplify SpliceAI transcript output.<br />
+                    - implemented <b>beta</b> SpliceAI score interpretation<br />
+                    - added transcript toggling to simplify output.<br />
                     <br />
                     <b>May 22, 2023</b><br />
                     - changed defaults to 'masked' and max distance to 500bp<br />
@@ -322,6 +348,35 @@
               <div class="results-div">
                   <div id="error-box" style="color:darkred"></div>
                   <div id="response-box">
+                    <div id="interpretation-box" class="ui raised segment grid" style="width: 100%; border-radius: 0 0 10px 10px;">
+                      <div class="row" style="margin: 0; padding: 0;">
+                        <div class="four wide column" style="padding: 10px;">
+                          <b>Interpretation Parameters:</b> <i class='question circle outline icon' data-position='top center' data-content="The parameters used to generate the SpliceAI Interpretation. Default transcript is canonical and default ∆ score threshold is 0.2."></i> <div id="interpretation-vars""></div>
+                        </div>
+                        <div class="twelve wide column" style="padding: 0; border-left: 1px solid rgba(34,36,38,.15);">
+                          <!-- <b>Interpretation of Scores:</b> <i class='question circle outline icon' data-position='top center' data-content="Here is the interpretation of the SpliceAI score impact on the transcript of interest - you're welcome."></i> -->
+                          <div id="interpretation-results"></div>
+                        </div>
+                      </div>
+                      <div id="IGV_viewer" class="row ui placeholder segment" style="margin: 0; border-radius: 0;">
+                        <div id="IGV_buttons" class="four wide column">
+                          <div style="height: 32px; margin: 2px 0 6px 0; padding-top: 14px;"><b style="font-size: 20px;">IGV Controls</b></div>
+                          <p>Use these buttons to control the highlights on the IGV browser.</p>
+                          <button id='roi-load-variant' class="ui button IGV_toggle_highlight">Show Variant</button>
+                          <button id='roi-load-spliceai' class="ui button IGV_toggle_highlight">Show SpliceAI</button>
+                          <button id='roi-load-pangolin' class="ui button IGV_toggle_highlight">Show Pangolin</button>
+                          <button id='roi-clear-button' class="ui button IGV_toggle_highlight">Clear Highlights</button>
+                          
+                          <p>To create a custom highlight click and drag a region in the ruler area while holding down the Shift key.</p>
+                        </div>
+                        <div class="twelve wide column">
+                          <div id="igv-div" class="ui segment"></div>
+                        </div>
+                        </div>
+                        <div class="row" style="padding: 0;">
+                          <button id="IGV_toggle" class="sixteen wide column ui button" onclick="toggleIGV()" style="margin: 0; border-radius: 0 0 5px 5px;">Show IGV</button>
+                      </div>
+                    </div>
                     <table id="scores-box" class="ui stackable table">
                       <thead id="spliceai_header">
                         <tr><th style="background-color: white;" colspan='7'>SpliceAI scores: <a href="https://www.cell.com/cell/pdf/S0092-8674(18)31629-5.pdf" target="_blank"><i class='question circle outline icon' data-position='right center' data-content='SpliceAI scores are computed for each transcript on the server by running the SpliceAI model with the user-selected parameters (ie. max distance).'></i></a></th></tr>
@@ -532,11 +587,16 @@
         return result;
       }
 
-      function getUCSCBrowserUrl(genome_version, chrom, pos) {
-
+      function getUCSCBrowserUrl(genome_version, chrom, pos, distance) {
         genome_version = genome_version.replace('37', '19')
         chrom = chrom.toUpperCase().replace('CHR', '')
-        return "https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg" + genome_version + "&position=chr" + chrom + ":" + pos
+        const start = parseInt(pos) - parseInt(distance);
+        const end = parseInt(pos) + parseInt(distance);
+
+        ucsc_url = "https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg" + genome_version + "&position=chr" + chrom + ":" + start + "-" + end
+        ucsc_variant_highlight = "&highlight=hg"+ genome_version + ".chr" + chrom + ":" + pos + "-" + pos + "%23FF0000"
+        
+        return ucsc_url + ucsc_variant_highlight
       }
 
       function generateResultsTable(response) {
@@ -566,17 +626,8 @@
                 }
             })
 
-            const score_types = is_pangolin ? ["SG", "SL"] : ["DG", "DL", "AG", "AL"]
-            // score_types.forEach(function(score_type) {
-            //     try {
-            //         splice_prediction_dict[score_type + "_url"] = getUCSCBrowserUrl(response.hg, response.chrom, response.pos + parseInt(splice_prediction_dict["DP_" + score_type]))
-            //     } catch(e) {
-            //         splice_prediction_dict[score_type + "_url"] = "#"
-            //     }
-            // })
-
             try {
-                splice_prediction_dict["url"] = getUCSCBrowserUrl(response.hg, response.chrom, response.pos)
+                splice_prediction_dict["url"] = getUCSCBrowserUrl(response.hg, response.chrom, response.pos, response.distance)
             } catch(e) {
                 splice_prediction_dict["url"] = "#"
             }
@@ -585,6 +636,7 @@
             splice_prediction_dict['is_pangolin'] = is_pangolin
             splice_prediction_dict['hg'] = response.hg
             splice_prediction_dict['variant'] = response.variant
+            splice_prediction_dict['variant_type'] = variant_type
 
             // compute sort key
             const splice_prediction_tool = is_pangolin ? 1 : 0;
@@ -733,6 +785,154 @@
         }
       }
 
+      function getPangolin(row, request) {
+        scores = []
+        positions = []
+        Array.from(row.children).forEach(function(item, index) {
+          if (item.classList.contains("upperBorder")) {
+            scores[index] = item.children[3].innerText
+            positions[index] = item.children[4].innerText
+          } else { 
+            scores[index] = item.children[1].innerText
+            positions[index] = item.children[2].innerText
+          }})
+        console.log(positions)
+        if (request == "scores") {
+          return scores
+        } else if (request == "positions") {
+          return positions
+        } else {
+          return [scores, positions]
+        }
+      }
+
+      function interpret(tool, scores, threshold) {
+        $("#interpretation-results").empty()
+
+        const SpliceAI_significant = getAboveThreshold($("#selected_transcript").val(), threshold)
+        const SpliceAI_impact = interpretAboveThreshold(SpliceAI_significant)
+        console.log(SpliceAI_impact)
+        
+        adjust_message = "Adjusting the interpretation parameters (left) or the inital search parameters (above) may produce different results.<br />Keep in mind that this may lead to less accurate results if low thresholds are used."
+        
+        if ( SpliceAI_impact[0] == "No scores above threshold" || SpliceAI_impact[0] == "Unusual score combination observed") {
+          $( "#interpretation-results" ).append( "<div style='padding: 10px'><b>" + SpliceAI_impact[0] + "</b><br />" + adjust_message + "</div>");
+        } else if ( variant_type != "SNV" ) {
+          $( "#interpretation-results" ).append( "<div style='padding: 10px'><b>" + "Full interpretation not yet available for Indels and MNVs.</b><br />Quick result: " + SpliceAI_impact[0] + "</b></div>")
+        } else {
+          interpretation_header = "<table class='ui stackable table'><thead><tr><th></th><th>Predicted Splice Effect</th><th>Base Change</th><th>Amino Acid Change</th></tr></thead>"
+          interpretation_results = ""
+          SpliceAI_impact.forEach(function(item, index) {
+            results_array = getBaseChange(item, $("#selected_transcript").val())
+            var flags = ""
+            if (results_array[2] == "out-of-frame") {
+              flags = "<i id='flag' class='question icon stop circle red large' data-content='Out-of-Frame' data-position='top center'></i>"
+            }
+
+            interpretation_results = interpretation_results + "<tbody><tr><td>" + flags + "</td><td>" + results_array[0] + "</td><td>" + results_array[1] + " bp" + "</td><td>" + Math.round(results_array[1]/3 * 10)/10 + "</td></tr></tbody>"
+          }) 
+          $( "#interpretation-results" ).append( interpretation_header + interpretation_results + "</table>");
+        }
+        
+      }
+
+      function findTranscript(element) {
+        transcript = element.children[0].children[1].children[0].children[1].innerText;
+        id = element.id;
+        return [transcript, id];
+      }
+
+      function threshold_adjust(direction) {
+        if (direction == "up") {
+          $("#threshold_input")[0].value = Math.round((parseFloat($("#threshold_input")[0].value) + 0.01) * 1000) / 1000
+        } else if (direction == "down") {
+          $("#threshold_input")[0].value = Math.round((parseFloat($("#threshold_input")[0].value) - 0.01) * 1000) / 1000
+        }
+      }
+
+      function getAboveThreshold(transcript, threshold) {
+        const above_threshold = []
+        getSpliceAI(document.getElementById(transcript), "scores").forEach(function(item, index) {
+          if (item >= threshold) {
+            if (index == 0) {
+              above_threshold.push("Acceptor Loss")
+            } else if (index == 1) {
+              above_threshold.push("Donor Loss")
+            } else if (index == 2) {
+              above_threshold.push("Acceptor Gain")
+            } else if (index == 3) {
+              above_threshold.push("Donor Gain")
+            }
+          }
+        })
+        return above_threshold;
+      }
+
+      function interpretAboveThreshold(above_threshold) {
+        if (above_threshold.length == 0) {
+          return ["No scores above threshold", 0]
+        } else if (above_threshold.length == 1) {
+          if (above_threshold.includes("Acceptor Loss")) {
+            return ["Unusual score combination observed", 1]
+          } else if (above_threshold.includes("Donor Loss")) {
+            return ["Intron Retention"]
+          } else if (above_threshold.includes("Acceptor Gain")) {
+            return ["Unusual score combination observed", 1]
+          } else if (above_threshold.includes("Donor Gain")) {
+            return ["Unusual score combination observed", 1]
+          }
+        } else if (above_threshold.length == 2) {
+          if (above_threshold.includes("Acceptor Loss") & above_threshold.includes("Donor Loss")) {
+            return ["Exon Skipping"]
+          } else if (above_threshold.includes("Donor Loss") & above_threshold.includes("Donor Gain")) {
+            return ["New Donor Splice Site"]
+          } else if (above_threshold.includes("Acceptor Loss") & above_threshold.includes("Acceptor Gain")) {
+            return ["New Acceptor Splice Site"]
+          } else if (above_threshold.includes("Acceptor Gain") & above_threshold.includes("Donor Gain")) {
+            return ["Pseudoexon Created"]
+          } else {
+            return ["Unusual score combination observed", 2]
+          }
+        } else if (above_threshold.length == 3) {
+          if (above_threshold.includes("Acceptor Loss") & above_threshold.includes("Donor Loss") & above_threshold.includes("Acceptor Gain")) {
+            return ["Exon Skipping", "New Acceptor Splice Site"]
+          } else if (above_threshold.includes("Acceptor Loss") & above_threshold.includes("Donor Loss") & above_threshold.includes("Donor Gain")) {
+            return ["Exon Skipping", "New Donor Splice Site"]
+          } else {
+            return ["Unusual score combination observed", 3]
+          }
+        } else if (above_threshold.length == 4) {
+          return ["Unusual score combination observed", 4]
+        }
+      }
+
+      function getBaseChange(impact, transcript) {
+        positions = getSpliceAI(document.getElementById(transcript), "positions")
+        pos_AL = positions[0].split(" ")[0]
+        pos_DL = positions[1].split(" ")[0]
+        pos_AG = positions[2].split(" ")[0]
+        pos_DG = positions[3].split(" ")[0]
+        
+        if (impact == "Exon Skipping") {
+          base_change = Math.abs(pos_AL - pos_DL) + 1
+        } else if (impact == "New Acceptor Splice Site") {
+          base_change = Math.abs(pos_AL - pos_AG)
+        } else if (impact == "New Donor Splice Site") {
+          base_change = Math.abs(pos_DL - pos_DG)
+        } else if (impact == "Pseudoexon Created") {
+          base_change = Math.abs(pos_DG - pos_AG) + 1
+        } 
+        return [impact, base_change, frameCheck(base_change), pos_AL, pos_DL, pos_AG, pos_DG];
+      }
+
+      function frameCheck(base_change) {
+        if (base_change % 3 == 0) {
+          return "in-frame"
+        } else {
+          return "out-of-frame"
+        }
+      }
+
       function toggleSetUp(canonical) {
         $(".noncanonical").hide()
         $("#canonicalToggle").addClass("primary")
@@ -773,8 +973,6 @@
 
           if (document.getElementsByClassName("diffScore").length == 0) {
             $("#diffScoreToggle").addClass("disabled");
-            $("#diffScoreToggle_span")
-
             $('#diffScoreToggle_span')
               .popup({
                 content : 'All transcripts have the same scores',
@@ -783,6 +981,142 @@
           }
         }
       }
+
+      function interpretSetUp() {
+        canonical_info = findTranscript(Array.from(document.getElementsByClassName("canonical"))[0])
+        transcript_dropdown = "<span style='display: inline-block; white-space: nowrap; padding: 0 15px 10px 0;'><b>Transcript:</b></span><select id='selected_transcript' class='ui compact selection dropdown'><option value='" + canonical_info[1] + "' selected>" + canonical_info[0] + "</option>"
+        Array.from(document.getElementsByClassName("noncanonical")).forEach(function(item, index) {
+          transcript_dropdown = transcript_dropdown + "<option value='" + item.id + 
+            "'>" + item.children[0].children[1].children[0].children[1].innerText + "</option>"
+        })
+        interpretation_inputs = "<div class='ui form' id='interpretation_form' style='padding: 10px; margin: 0;'>" + transcript_dropdown + "</select>" +
+          "<div style='margin-top: 10px;'><span style='display: inline-block; padding-right: 15px; position: relative; top: -6px;'><b>Score Threshold:</b></span><div><input id='threshold_input' style='padding:7px 10px; width: 60px; height: 44px; border-radius: 5px 0 0 5px;' type='text' value='" + 0.2 + "'></input>" +
+          "<div class='stacked' display='position: inline-block'><button class='ui button icon' onclick='threshold_adjust(\"up\")' style='border-radius: 0px 5px 0px 0px;'><i class='angle up icon'></i></button>" + 
+          "<button class='ui button icon' onclick='threshold_adjust(\"down\")' style='border-radius: 0px 0px 5px 0px;'><i class='angle down icon'></i></button></div>" + 
+          "<button id='interpret-button' onclick='interpret_rerun()' style='border-radius: 5px; font-size: 1.2rem; position: absolute; height: 44px;' class='ui button icon primary' data-content='Calculate interpretation using these values. Default Threshold is 0.2 and Transcript is canonical.' data-position='right center'><i style='position: relative; top: 40%; transform: translate(0, -50%);' class='bolt icon'></i></button></div></div></div>" 
+        $( "#interpretation-vars" ).html( interpretation_inputs );
+
+        $('#interpret-button').popup()
+        $('.ui.dropdown').dropdown();
+        
+        interpret("spliceai", canonical_info, 0.2)
+        $("#interpretation-box").show()
+      }
+
+      function interpret_rerun() {
+        interpret("spliceai", $("#selected_transcript").val(), $("#threshold_input").val())
+      }
+
+      function toggleIGV() {
+        $("#IGV_viewer").toggle()
+
+        if ($("#IGV_viewer").is(":visible")) {
+          document.getElementById("IGV_toggle").innerText = "Hide IGV";
+          if ($("#igv-div").is(':empty')) {
+            populateIGV(8, 140300616, 500, "38".replace('37', '19'), getSpliceAI(document.getElementsByClassName("canonical")[0]), getPangolin(document.getElementsByClassName("pangolin")[0]))
+          }
+        } else {
+          document.getElementById("IGV_toggle").innerText = "Show IGV";
+        }
+      }
+
+      function populateIGV(chrom, pos, distance, genome_version, spliceAI_results, pangolin_results) {
+        $("#igv-div").empty()
+        var color = "rgba(219, 61, 61, 0.5)";
+        var browser_config =
+        {
+            genome: "hg" + genome_version,
+            locus: "chr" + chrom + ':' + (pos - distance) + "-" + (pos - -distance),
+            tracks: [
+                {
+                    name: "REF SpliceAI",
+                    type: "annotation",
+                    format: "bed",
+                    url: "https://raw.githubusercontent.com/kidsneuro-lab/spliceai_es_scores/main/spliceai_es_scores.bed.gz",
+                    displayMode: "EXPANDED",
+                    color: "#ff0000",
+                }
+            ]
+        };
+
+        const variant_roi_config =
+        [
+                {
+                    name: "Variant",
+                    color: color,
+                    features: [
+                        {
+                            chr: "chr" + chrom,
+                            start: pos - 1,
+                            end: pos,
+                            description: "Variant of interest",
+                        }
+                    ]
+                }
+        ];
+
+        var spliceAI_DP_ROI = []
+        Array.from(spliceAI_results[1]).forEach(function(item, index) {
+          if(item != "") {
+            item = parseInt(item.split(" ")[0])
+            spliceAI_DP_ROI[index] = [
+                {
+                    name: index,
+                    color: "rgba(72,72,155,0.8)",
+                    features:
+                        [
+                            {
+                                chr: "chr" + chrom,
+                                start: parseInt(pos + item - 1),
+                                end: parseInt(pos + item),
+                            },
+                        ]
+                }
+              ]
+          }
+        });
+
+        var Pangolin_DP_ROI = []
+        Array.from(pangolin_results[1]).forEach(function(item_P, index_P) {
+          if(item_P != "") {
+            item_P = parseInt(item_P.split(" ")[0])
+            Pangolin_DP_ROI[index_P] = [
+                {
+                    name: index_P,
+                    color: "rgba(46,139,87,0.8)",
+                    features:
+                        [
+                            {
+                                chr: "chr" + chrom,
+                                start: parseInt(pos + item_P - 1),
+                                end: parseInt(pos + item_P),
+                            },
+                        ]
+                }
+              ]
+          }
+        });
+
+        (async () => {
+          const browser = await igv.createBrowser(document.getElementById('igv-div'), browser_config)
+          document.getElementById("roi-load-variant").addEventListener('click', () => browser.loadROI(variant_roi_config))
+          document.getElementById("roi-load-variant").addEventListener('click', () => $("#roi-load-variant").addClass("disabled"))
+          document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[0]))
+          document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[1]))
+          document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[2]))
+          document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[3]))
+          document.getElementById("roi-load-spliceai").addEventListener('click', () => $("#roi-load-spliceai").addClass("disabled"))
+          document.getElementById("roi-load-pangolin").addEventListener('click', () => browser.loadROI(Pangolin_DP_ROI[0]))
+          document.getElementById("roi-load-pangolin").addEventListener('click', () => browser.loadROI(Pangolin_DP_ROI[1]))
+          document.getElementById("roi-load-pangolin").addEventListener('click', () => $("#roi-load-pangolin").addClass("disabled"))
+          document.getElementById("roi-clear-button").addEventListener('click', () => browser.clearROIs())
+          document.getElementById("roi-clear-button").addEventListener('click', () => $(".IGV_toggle_highlight").removeClass("disabled"))
+          //document.getElementById("roi-clear-button").addEventListener('click', () => browser.clearROIs())
+          //getUserDefinedROIs()
+          
+          // const rois = await browser.getUserDefinedROIs()
+      })()
+    }
 
       $(document).ready(function() {
         $('.ui.radio.checkbox').checkbox()
@@ -812,6 +1146,7 @@
           $("#response-box").hide()
           $(".spliceai").remove()
           $(".pangolin").remove()
+          $(".interpretation").remove()
           
           $("#submit-button").addClass(["loading", "disabled"])
 
@@ -839,7 +1174,7 @@
             console.warn(errorText)
             throw { responseText: errorText }
           }).then(function(response) {
-            console.log("Esnembl API response", response)
+            // console.log("Esnembl API response", response)
             if (!response || !response[0]) {
               throw { responseText: "Unable to parse Ensembl API repsonse: " + response }
             }
@@ -851,9 +1186,10 @@
             const alt = vcf_string[3]
             const variant_type = variantType(ref, alt)
             const most_severe_consequence = (response[0].most_severe_consequence || "").replace(/_/g, " ")
+            // console.log(response[0].strand)
 
-            console.log("chrom:", chrom, "pos:", pos, "ref:", ref, "alt:", alt)
-            console.log("Most severe consequence:", most_severe_consequence)
+            // console.log("chrom:", chrom, "pos:", pos, "ref:", ref, "alt:", alt)
+            // console.log("Most severe consequence:", most_severe_consequence)
 
             // get SpliceAI and Pangolin scores from API endpoints in parallel
             //const base_api_url = location.hostname == "" ? "http://localhost:8080" : "https://spliceailookup-api.broadinstitute.org"
@@ -884,10 +1220,10 @@
               $("#pangolin_header").after(generateResultsTable(response[1]))
               $("#survey").hide()
 
-              document.getElementsByClassName("canonical")[0]
               const canonical = getSpliceAI(document.getElementsByClassName("canonical")[0])
               toggleSetUp(canonical[0])
-
+              interpretSetUp()
+              $("#IGV_viewer").hide()
           
               // set url
               window.location.hash = "#" + $.param({
@@ -947,7 +1283,6 @@
           $("#submit-button").click()
         }
       })
-
     </script>
 </body>
 </html>
