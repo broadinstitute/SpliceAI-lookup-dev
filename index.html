@@ -362,10 +362,10 @@
                         <div id="IGV_buttons" class="four wide column">
                           <div style="height: 32px; margin: 2px 0 6px 0; padding-top: 14px;"><b style="font-size: 20px;">IGV Controls</b></div>
                           <p>Use these buttons to control the highlights on the IGV browser.</p>
-                          <button id='roi-load-variant' class="ui button">Show Variant</button>
-                          <button id='roi-load-spliceai' class="ui button">Show SpliceAI</button>
-                          <button id='roi-load-pangolin' class="ui button">Show Pangolin</button>
-                          <button id='roi-clear-button' class="ui button">Clear Highlights</button>
+                          <button id='roi-load-variant' class="ui button IGV_toggle_highlight">Show Variant</button>
+                          <button id='roi-load-spliceai' class="ui button IGV_toggle_highlight">Show SpliceAI</button>
+                          <button id='roi-load-pangolin' class="ui button IGV_toggle_highlight">Show Pangolin</button>
+                          <button id='roi-clear-button' class="ui button IGV_toggle_highlight">Clear Highlights</button>
                           
                           <p>To create a custom highlight click and drag a region in the ruler area while holding down the Shift key.</p>
                         </div>
@@ -1100,14 +1100,17 @@
         (async () => {
           const browser = await igv.createBrowser(document.getElementById('igv-div'), browser_config)
           document.getElementById("roi-load-variant").addEventListener('click', () => browser.loadROI(variant_roi_config))
-          // document.getElementById("roi-load-button").addEventListener('click', () => browser.loadROI(roi_config))
+          document.getElementById("roi-load-variant").addEventListener('click', () => $("#roi-load-variant").addClass("disabled"))
           document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[0]))
           document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[1]))
           document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[2]))
           document.getElementById("roi-load-spliceai").addEventListener('click', () => browser.loadROI(spliceAI_DP_ROI[3]))
+          document.getElementById("roi-load-spliceai").addEventListener('click', () => $("#roi-load-spliceai").addClass("disabled"))
           document.getElementById("roi-load-pangolin").addEventListener('click', () => browser.loadROI(Pangolin_DP_ROI[0]))
           document.getElementById("roi-load-pangolin").addEventListener('click', () => browser.loadROI(Pangolin_DP_ROI[1]))
+          document.getElementById("roi-load-pangolin").addEventListener('click', () => $("#roi-load-pangolin").addClass("disabled"))
           document.getElementById("roi-clear-button").addEventListener('click', () => browser.clearROIs())
+          document.getElementById("roi-clear-button").addEventListener('click', () => $(".IGV_toggle_highlight").removeClass("disabled"))
           //document.getElementById("roi-clear-button").addEventListener('click', () => browser.clearROIs())
           //getUserDefinedROIs()
           
