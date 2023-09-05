@@ -1024,13 +1024,15 @@
       function toggleIGV() {
         $("#IGV_viewer").toggle()
         currentUrl = window.location.href.split("#")[1]
-        variant = currentUrl.split("&")[0].split("=")[1].split("-")
+        variant = document.getElementById("transcript_0").children[0].children[0].children[0].innerText.split("-")
         genome_version = currentUrl.split("&")[1].split("=")[1]
+
+        if ($("#igv-div").is(':empty')) {
+          populateIGV(variant[0], parseInt(variant[1]), 500, genome_version.replace('37', '19'), getSpliceAI(document.getElementsByClassName("canonical")[0]), getPangolin(document.getElementsByClassName("pangolin")[0]))
+        }
+
         if ($("#IGV_viewer").is(":visible")) {
           document.getElementById("IGV_toggle").innerText = "Hide IGV";
-          if ($("#igv-div").is(':empty')) {
-            populateIGV(variant[0], parseInt(variant[1]), 500, genome_version.replace('37', '19'), getSpliceAI(document.getElementsByClassName("canonical")[0]), getPangolin(document.getElementsByClassName("pangolin")[0]))
-          }
         } else {
           document.getElementById("IGV_toggle").innerText = "Show IGV";
         }
@@ -1042,7 +1044,7 @@
         var browser_config =
         {
             genome: "hg" + genome_version,
-            locus: chrom + ':' + (pos - distance) + "-" + (pos - -distance),
+            locus: 'chr' + chrom + ':' + (pos - distance) + "-" + (pos - -distance),
             tracks: [
                 {
                     name: "REF SpliceAI",
@@ -1062,7 +1064,7 @@
                     color: color,
                     features: [
                         {
-                            chr: chrom,
+                            chr: 'chr' + chrom,
                             start: pos - 1,
                             end: pos,
                             description: "Variant of interest",
@@ -1082,7 +1084,7 @@
                     features:
                         [
                             {
-                                chr: chrom,
+                                chr: 'chr' + chrom,
                                 start: parseInt(pos + item - 1),
                                 end: parseInt(pos + item),
                             },
@@ -1103,7 +1105,7 @@
                     features:
                         [
                             {
-                                chr: chrom,
+                                chr: 'chr' + chrom,
                                 start: parseInt(pos + item_P - 1),
                                 end: parseInt(pos + item_P),
                             },
@@ -1239,7 +1241,9 @@
               const canonical = getSpliceAI(document.getElementsByClassName("canonical")[0])
               toggleSetUp(canonical[0])
               interpretSetUp()
+              $("#igv-div").empty()
               $("#IGV_viewer").hide()
+              document.getElementById("IGV_toggle").innerText = "Show IGV"
           
               // set url
               window.location.hash = "#" + $.param({
