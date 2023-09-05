@@ -616,13 +616,27 @@
         }
         
         response.scores.forEach(function(scores) {
-            const splice_prediction_values = scores.split("|")
-            const splice_prediction_dict = {};
+            let splice_prediction_dict = {}
+            if (is_pangolin) {
+                const splice_prediction_values = scores.split("|")
+                PANGOLIN_SCORE_FIELDS.forEach(function (k, i) {
+                    splice_prediction_dict[k] = splice_prediction_values[i]
+                    if (k.startsWith("DS_")) {
+                        splice_prediction_dict[k] = parseFloat(splice_prediction_dict[k])
+                    }
+                })
+            } else {
+                // the latest code in the SpliceAI fork @ http://github.com/bw2/SpliceAI returns the scores as a
+                // dict already, so no need for parsing
+                splice_prediction_dict = scores
+            }
 
-            (is_pangolin ? PANGOLIN_SCORE_FIELDS : SPLICEAI_SCORE_FIELDS).forEach(function(k, i) {
-                splice_prediction_dict[k] = splice_prediction_values[i]
-                if (k.startsWith("DS_")) {
-                    splice_prediction_dict[k] = Math.abs(parseFloat(splice_prediction_dict[k]))
+            const score_types = is_pangolin ? ["SG", "SL"] : ["DG", "DL", "AG", "AL"]
+            score_types.forEach(function(score_type) {
+                try {
+                    splice_prediction_dict[score_type + "_url"] = getUCSCBrowserUrl(response.hg, response.chrom, response.pos + parseInt(splice_prediction_dict["DP_" + score_type]))
+                } catch(e) {
+                    splice_prediction_dict[score_type + "_url"] = "#"
                 }
             })
 
@@ -631,7 +645,7 @@
             } catch(e) {
                 splice_prediction_dict["url"] = "#"
             }
-
+            
             splice_prediction_dict['source'] = response.source
             splice_prediction_dict['is_pangolin'] = is_pangolin
             splice_prediction_dict['hg'] = response.hg
