@@ -967,9 +967,8 @@
                       })
                   }
                   if(window.igvBrowser) {
-                      // TODO fix this
                       console.log("Updating igv config to", igvConfig)
-                      igvBrowser.initialize(igvConfig)
+                      window.igvBrowser.loadSessionObject(igvConfig)
                   }
               }
 
