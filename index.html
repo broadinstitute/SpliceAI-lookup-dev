@@ -571,6 +571,20 @@
               locus: `${chrom}:${minPos - 50}-${maxPos + 50}`,
               tracks: [
                   {
+                      height: 100,
+                      rawOrDelta: "raw",
+                      name: "SpliceAI",
+                      type: "spliceprediction",
+                      features: response.all_non_zero_scores,
+                  },
+                  {
+                      height: 200,
+                      rawOrDelta: "delta",
+                      name: "SpliceAI",
+                      type: "spliceprediction",
+                      features: response.all_non_zero_scores,
+                  },
+                  {
                       height: 30,
                       name: "Variant",
                       type: "vcf",
@@ -588,20 +602,6 @@
                               }
                           },
                       ],
-                  },
-                  {
-                      height: 100,
-                      rawOrDelta: "raw",
-                      name: "SpliceAI",
-                      type: "spliceprediction",
-                      features: response.all_non_zero_scores,
-                  },
-                  {
-                      height: 200,
-                      rawOrDelta: "delta",
-                      name: "SpliceAI",
-                      type: "spliceprediction",
-                      features: response.all_non_zero_scores,
                   },
                   {
                       name: "Gencode v44",
