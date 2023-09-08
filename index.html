@@ -545,6 +545,7 @@
 
       function generateIgvConfig(response) {
           //generate IGV config json based on the SpliceAI response
+
           const chrom = `chr${response.chrom.replace('chr', '')}`
           const pos = response.pos
           const ref = response.ref
@@ -560,7 +561,11 @@
               maxPos = Math.max(maxPos, x.pos)
           })
 
+          // specify IGV tracks and the data to display in them
           const reference = response.hg == "37" ? "hg19" : "hg38"
+          const gencodeTrackPath = response.hg == "37" ?
+                "gs://tgg-viewer/ref/GRCh37/gencode_v44/knownGene_v44.hg19.sorted.txt.gz" :
+                "gs://tgg-viewer/ref/GRCh38/gencode_v44/knownGene_v44.hg38.sorted.txt.gz"
           return {
               reference: reference,
               locus: `${chrom}:${minPos - 50}-${maxPos + 50}`,
@@ -571,7 +576,7 @@
                       type: "vcf",
                       features: [
                           {
-                              chr: chrom,   //see createVCFVariant function in igv.js
+                              chr: chrom,   //see createVCFVariant function in the igv.js repo for the allowed fields
                               pos: pos,
                               start: pos - 1,
                               end: pos,
@@ -598,7 +603,19 @@
                       type: "spliceprediction",
                       features: response.all_non_zero_scores,
                   },
-
+                  {
+                      name: "Gencode v44",
+                      format: 'refgene',
+                      url: gencodeTrackPath,
+                      indexURL: `${gencodeTrackPath}.tbi`,
+                      indexed: true,
+                      searchable: true,
+                      height: 350,
+                      visibilityWindow: -1,
+                      order: 1000001,
+                      displayMode: 'EXPANDED',
+                      color: 'rgb(76,171,225)',
+                  }
               ],
           }
       }
@@ -962,12 +979,13 @@
 
                   const igvConfig = generateIgvConfig(response[0])
                   if (!window.igvBrowserCreated) {
+                      // create igv and load tracks after 1st variant scores received.
                       window.igvBrowserCreated = true
                       igv.createBrowser(document.getElementById("igvDiv"), igvConfig).then((browser) => {
                           window.igvBrowser = browser
                       })
-                  }
-                  if(window.igvBrowser) {
+                  } else if(window.igvBrowser) {
+                      // page already initialized, and the user submitted another variant. Update IGV tracks.
                       console.log("Updating igv config to", igvConfig)
                       window.igvBrowser.loadSessionObject(igvConfig)
                   }
