@@ -564,20 +564,21 @@
           const tracks = []
 
           tracks.push({
-              "name": "Refseq",
-              "format": "refgene",
-              "url": responseSpliceAI.hg == "38" ?
+              name: "Refseq",
+              format: "refgene",
+              url: responseSpliceAI.hg == "38" ?
                   "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz" :
                   "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ncbiRefSeq.txt.gz",
-              "indexed": false,
-              "infoURL": "https://www.ncbi.nlm.nih.gov/gene/?term=$$"
+              indexed: false,
+              infoURL: "https://www.ncbi.nlm.nih.gov/gene/?term=$$",
+              height: 100,
           })
 
           tracks.push({
-              height: 30,
               name: "Variant (?) ",
               type: "vcf",
               description: `This tracks shows the position of the <b>${chrom}:${pos} ${ref}>${alt}</b> variant.`,
+              height: 30,
               features: [
                   {
                       chr: chrom,   //see createVCFVariant function in the igv.js repo for the allowed fields
