@@ -272,8 +272,8 @@
                     <br /> -->
                     <b>Sep 7, 2023</b><br />
                     - added transcript toggling to simplify SpliceAI transcript output<br />
-                    - added transcript strand to SpliceAI results<br />
-                    - added score visualizations using <a href="https://github.com/bw2/igv.js">custom</a> <a href="https://github.com/igvteam/igv.js">IGV.js</a> tracks</a><br />
+                    - added transcript strand to the results table<br />
+                    - added score visualizations for SpliceAI and Pangolin using <a href="https://github.com/bw2/igv.js">custom IGV.js</a> tracks<br />
                     <br />
                     <b>May 22, 2023</b><br />
                     - changed defaults to 'masked' and max distance to 500bp<br />
@@ -561,65 +561,105 @@
           }
 
           // specify IGV tracks and the data to display in them
-          const reference = responseSpliceAI.hg == "37" ? "hg19" : "hg38"
-          const gencodeTrackPath = responseSpliceAI.hg == "37" ?
-                "gs://tgg-viewer/ref/GRCh37/gencode_v44/knownGene_v44.hg19.sorted.txt.gz" :
-                "gs://tgg-viewer/ref/GRCh38/gencode_v44/knownGene_v44.hg38.sorted.txt.gz"
-
           const tracks = []
+
+          tracks.push({
+              "name": "Refseq",
+              "format": "refgene",
+              "url": responseSpliceAI.hg == "38" ?
+                  "https://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/ncbiRefSeq.txt.gz" :
+                  "https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/ncbiRefSeq.txt.gz",
+              "indexed": false,
+              "infoURL": "https://www.ncbi.nlm.nih.gov/gene/?term=$$"
+          })
+
+          tracks.push({
+              height: 30,
+              name: "Variant (?) ",
+              type: "vcf",
+              description: `This tracks shows the position of the <b>${chrom}:${pos} ${ref}>${alt}</b> variant.`,
+              features: [
+                  {
+                      chr: chrom,   //see createVCFVariant function in the igv.js repo for the allowed fields
+                      pos: pos,
+                      start: pos - 1,
+                      end: pos,
+                      referenceAllele: ref,
+                      alternateBases: alt,
+                      names: ".", // id in VCF
+                      info: {
+                          variant: `${chrom}-${pos}-${ref}-${alt}`,
+                      }
+                  },
+              ],
+          })
 
           if (responseSpliceAI) {
               tracks.push({
-                      height: 100,
-                      rawOrDelta: "raw",
-                      name: "SpliceAI",
-                      tool: "spliceai",
-                      type: "spliceprediction",
-                      features: responseSpliceAI.allNonZeroScores,
-                      strand: responseSpliceAI.allNonZeroScoresStrand,
+                  name: `SpliceAI (?)`,
+                  description: `<b>Transcript: ${responseSpliceAI.allNonZeroScoresTranscriptId}</b> (${responseSpliceAI.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
+                                SpliceAI predictions of splice acceptor & donor sites within the +/- ${responseSpliceAI.distance}bp window<br />
+                                around <b>${chrom}:${pos} ${ref}>${alt}</b>. This track shows markers that represent the scores for the<br/>
+                                <span style="color:#0000B4"><b>reference sequence</b></span> (without the variant) and the<br />
+                                <span style="color:#05d0d2"><b>alternate sequence</b></span> (with the variant). <br />
+                                A marker is shown at all positions where a score is ≥ 0.01. <br/>
+                                SpliceAI outputs separate predictions for whether a given position is a splice acceptor and/or a splice donor, so<br/>
+                                <b>A</b>'s represent acceptor probability scores, and <br/>
+                                <b>D</b>'s represent donor probability scores.<br/>
+                                The letters are shown up-side-down when the alternate sequence score is lower than the reference sequence score.<br/>
+                                Numerical labels show the scores predicted from the reference sequence.
+                                `,
+                  height: 100,
+                  rawOrDelta: "raw",
+                  tool: "SpliceAI",
+                  type: "spliceprediction",
+                  features: responseSpliceAI.allNonZeroScores,
+                  strand: responseSpliceAI.allNonZeroScoresStrand,
               })
               tracks.push({
-                      height: 200,
-                      rawOrDelta: "delta",
-                      name: "SpliceAI",
-                      tool: "spliceai",
-                      type: "spliceprediction",
-                      features: responseSpliceAI.allNonZeroScores,
-                      strand: responseSpliceAI.allNonZeroScoresStrand,
+                  name: `SpliceAI (?)`,
+                  description: `<b>Transcript: ${responseSpliceAI.allNonZeroScoresTranscriptId}</b> (${responseSpliceAI.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
+                                SpliceAI delta score predictions for gain and loss of splice acceptors and donors within a <br />
+                                +/- ${responseSpliceAI.distance}bp window around <b>${chrom}:${pos} ${ref}>${alt}</b>.<br />
+                                This track shows markers at all positions where the |delta score| is ≥ 0.01. <br/>
+                                <b>Bar colors:</b> <b style="color:#FF0000">red</b> is for delta scores ≥ 0.8,
+                                <b style="color:#FFCB1F">yellow</b> is for delta scores ≥ 0.5,
+                                <b style="color:#1fb839">green</b> is for delta scores ≥ 0.2<br />
+                                <b>A</b>'s represent acceptor probability scores<br/>
+                                <b>D</b>'s represent donor probability scores<br/>
+                                `,
+                  height: 200,
+                  rawOrDelta: "delta",
+                  tool: "SpliceAI",
+                  type: "spliceprediction",
+                  features: responseSpliceAI.allNonZeroScores,
+                  strand: responseSpliceAI.allNonZeroScoresStrand,
               })
           }
 
           if (responsePangolin) {
               tracks.push({
+                  name: `Pangolin (?)`,
+                  description: `<b>Gene: ${responsePangolin.allNonZeroScoresTranscriptId}</b> (${responsePangolin.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
+                                Pangolin delta score predictions for gain and loss of splice sites at positions<br />
+                                within a +/- ${responsePangolin.distance}bp window around <b>${chrom}:${pos} ${ref}>${alt}</b>.<br />
+                                This track shows markers at all positions where the delta score is ≥ 0.1. <br/>
+                                <b>Bar colors:</b> <b style="color:#FF0000">red</b> is for delta scores ≥ 0.8,
+                                <b style="color:#FFCB1F">yellow</b> is for delta scores ≥ 0.5,
+                                <b style="color:#1fb839">green</b> is for delta scores ≥ 0.2<br />
+                                `,
                   height: 200,
                   rawOrDelta: "delta",
-                  name: "Pangolin",
-                  tool: "pangolin",
+                  tool: "Pangolin",
                   type: "spliceprediction",
                   features: responsePangolin.allNonZeroScores,
                   strand: responsePangolin.allNonZeroScoresStrand,
               })
           }
 
-          tracks.push({
-                  height: 30,
-                  name: "Variant",
-                  type: "vcf",
-                  features: [
-                      {
-                          chr: chrom,   //see createVCFVariant function in the igv.js repo for the allowed fields
-                          pos: pos,
-                          start: pos - 1,
-                          end: pos,
-                          referenceAllele: ref,
-                          alternateBases: alt,
-                          names: ".", // id in VCF
-                          info: {
-                              variant: `${chrom}-${pos}-${ref}-${alt}`,
-                          }
-                      },
-                  ],
-          })
+          const gencodeTrackPath = responseSpliceAI.hg == "37" ?
+              "gs://tgg-viewer/ref/GRCh37/gencode_v44/knownGene_v44.hg19.sorted.txt.gz" :
+              "gs://tgg-viewer/ref/GRCh38/gencode_v44/knownGene_v44.hg38.sorted.txt.gz"
 
           tracks.push({
                   name: "Gencode v44",
@@ -640,9 +680,13 @@
               for (const splicePredictionType of ["loss", "gain"]) {
                       tracks.push(
                       {
-                          height: 100,
-                          name: `SpliceAI: splice ${splicePredictionType} score >= ${minScore}`,
+                          name: `SpliceAI: A or D ${splicePredictionType} ≥ ${minScore} (?)`,
+                          description: `This track visualizes Illumina's precomputed SpliceAI score tables for SNVs and small INDELs.<br/>
+                             Each genomic location where an SNV or INDEL variant would have a SpliceAI score ≥ ${minScore} is shown as the origin of an arrow.<br />
+                             The arrow points to the location where that variant would most likely cause acceptor or donor ${splicePredictionType}.
+                             Clicking on the arrow will display additional information.`,
                           type: "spliceJunctions",
+                          height: 100,
                           url: `gs://tgg-viewer/ref/GRCh38/spliceai/spliceai_scores.raw.snps_and_indels.hg38.filtered.sorted.score_${minScore}.splice_${splicePredictionType}.bed.gz`,
                           indexURL: `gs://tgg-viewer/ref/GRCh38/spliceai/spliceai_scores.raw.snps_and_indels.hg38.filtered.sorted.score_${minScore}.splice_${splicePredictionType}.bed.gz.tbi`,
                       }
@@ -651,16 +695,19 @@
           }
 
 
-          for (const filenamePrefix of [
-              "GTEX_muscle.803_samples",
-              "GTEX_blood.755_samples",
-              "GTEX_fibs.504_samples",
-              "GTEX_lymphocytes.174_samples",
-              "GTEX_brain_cortex.255_samples",
-              //"GTEX_frontal_cortex.209_samples",
+          for (const [filenamePrefix, tissue, sampleCount] of [
+              ["GTEX_muscle.803_samples", "muscle", 803],
+              ["GTEX_blood.755_samples", "blood", 755],
+              ["GTEX_fibs.504_samples", "fibroblasts", 504],
+              ["GTEX_lymphocytes.174_samples", "lymphocytes", 174],
+              ["GTEX_brain_cortex.255_samples", "brain cortex", 255],
+              //["GTEX_frontal_cortex.209_samples", "frontal cortex", 803],
           ]) {
               tracks.push({
-                  name: filenamePrefix.replaceAll(".", ": ").replaceAll("_", " ").replace("fibs", "fibroblasts"),
+                  name: `GTEx ${tissue}: ${sampleCount} samples (?)`,
+                  description: `This track shows the combined splice junctions from all ${sampleCount} ${tissue} samples available in GTEx v8.
+                                Splice junctions are labeled with the total number of RNA-seq reads that supported the junction, summed across the ${sampleCount} samples.
+                                The coverage track shows the total number of RNA-seq reads that overlap each position, summed across all samples and divided by ${sampleCount}.`,
                   type: "merged",
                   height: 100,
                   tracks: [{
@@ -679,10 +726,34 @@
               })
           }
 
+          let locusMargin = maxPos - minPos < 200 ? 15 : 50
+
+          // igv.js reference genome specs are copied from https://igv.org/genomes/genomes.json
+          // These must be specified explicitly rather than just setting the reference to "hg19" or "hg38" so that
+          // the RefSeq gene track can be the first track (as described in https://github.com/igvteam/igv.js/issues/1518)
+          let reference = responseSpliceAI.hg == "37" ? {
+              "id": "hg19",
+              "name": "Human (GRCh37/hg19)",
+              "fastaURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg19/hg19.fasta",
+              "indexURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg19/hg19.fasta.fai",
+              "cytobandURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg19/cytoBand.txt",
+              "aliasURL": "https://s3.amazonaws.com/igv.org.genomes/hg19/hg19_alias.tab",
+              "chromosomeOrder": "chr1, chr2, chr3, chr4, chr5, chr6, chr7, chr8, chr9, chr10, chr11, chr12, chr13, chr14, chr15, chr16, chr17, chr18, chr19, chr20, chr21, chr22, chrX, chrY",
+              "tracks": tracks,
+          } : {
+              "id": "hg38",
+              "name": "Human (GRCh38/hg38)",
+              "fastaURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg38/hg38.fa",
+              "indexURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg38/hg38.fa.fai",
+              "cytobandURL": "https://s3.amazonaws.com/igv.org.genomes/hg38/annotations/cytoBandIdeo.txt.gz",
+              "aliasURL": "https://s3.amazonaws.com/igv.org.genomes/hg38/hg38_alias.tab",
+              "chromosomeOrder": "chr1, chr2, chr3, chr4, chr5, chr6, chr7, chr8, chr9, chr10, chr11, chr12, chr13, chr14, chr15, chr16, chr17, chr18, chr19, chr20, chr21, chr22, chrX, chrY",
+              "tracks": tracks,
+          }
+
           return {
               reference: reference,
-              locus: `${chrom}:${minPos - 50}-${maxPos + 50}`,
-              tracks: tracks,
+              locus: `${chrom}:${minPos - locusMargin}-${maxPos + locusMargin}`,
           }
       }
 
@@ -736,8 +807,6 @@
         //sort by (gene name, is canonical transcript, is non-coding transcriipt)
         parsed_scores_or_errors = _.chain(parsed_scores_or_errors).sortBy('sort_key').value()
 
-        console.log("Parsed scores:", parsed_scores_or_errors)
-
         return parsed_scores_or_errors.map(function(scores_or_error, index) {
 
                 let scores = scores_or_error
@@ -760,6 +829,8 @@
                     const biotype_link = `<div class="smallLink"><a href="https://www.gencodegenes.org/pages/biotypes.html" target="_blank">${transcript_type.replace(/_/g, " ")}</a></div>`
                     const refseq_transcript_id_link = refseq_transcript_ids ? (" /" + ` <a href="https://www.ncbi.nlm.nih.gov/search/all/?term=${refseq_transcript_ids[0]}" target="_blank">${refseq_transcript_ids[0]}</a>`) : ''
                     gene_and_transcript_id = ` <div class="smallLink">(${gene_id_link}${transcript_id_link}${refseq_transcript_id_link})</div><br /><br class='only-large-screen' />${biotype_link}${canonical_transcript_text} <div class="smallLink"> (${strand} strand)</div>`
+                } else {
+                    gene_and_transcript_id = ` <div class="smallLink"> (${strand} strand)</div>`
                 }
                 //round to 2 decimal places
                 if (scores.is_pangolin) {
