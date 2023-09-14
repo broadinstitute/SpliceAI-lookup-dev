@@ -319,7 +319,7 @@
                                 <div style="float:right;">
                                     <span class='transcript-color-legend'
                                           style="background-color: var(--MAIN_TRANSCRIPT_BACKGROUND_COLOR)!important">&nbsp;</span>
-                                    = main transcript
+                                    = <span class="main-transcript-label">MANE Select</span> transcript
                                     <span class='transcript-color-legend'
                                           style="background-color: var(--NON_CODING_TRANSCRIPT_BACKGROUND_COLOR)!important">&nbsp;</span>
                                     = non-coding transcript
@@ -347,11 +347,7 @@
                             <td colspan="7" style="padding: 10px 0px 50px 0px">
                                 <div class="ui buttons">
                                     <button id="main-transcript-button" class="ui button" onclick="updateTranscriptButtons('main')">
-                                        Main Transcripts
-                                    </button>
-                                    <div class="or"></div>
-                                    <button id="diff-score-transcript-button" class="ui button" onclick="updateTranscriptButtons('diff-score')">
-                                        Transcripts with Differing Scores
+                                        <span class="main-transcript-label">MANE Select</span> Transcript
                                     </button>
                                     <div class="or"></div>
                                     <button id="all-transcript-button" class="ui button" onclick="updateTranscriptButtons('all')">
@@ -498,9 +494,8 @@
             "C": "Canonical transcript",
         }
 
-        const deltaScores = []
-        const tableRows = []
         const transcriptCategories = {}
+        const tableRows = []
         for (const scores of apiResponseJson.scores) {
             const isPangolin = tool.toLowerCase() == "pangolin"
             const subRowCount = isPangolin ? 2 : 4
@@ -514,23 +509,13 @@
                 resultRowClasses.push("main-transcript")
                 transcriptCategories["main"] = true
             } else {
-                transcriptCategories["all"] = true
+                resultRowClasses.push("non-main-transcript")
+                transcriptCategories["non-main"] = true
             }
-
             if(scores['t_type'] == "protein_coding") {
                 resultRowClasses.push("coding-transcript")
             } else {
                 resultRowClasses.push("non-coding-transcript")
-            }
-
-            if (tool.toLowerCase() == "spliceai") {
-                const currentTranscriptDeltaScores = isPangolin ?
-                    ['DS_SL', 'DS_SG'].map(x => scores[x]).join("|") :
-                    ['DS_AL', 'DS_DL', 'DS_AG', 'DS_DG'].map(x => scores[x]).join("|")
-                if (!deltaScores.includes(currentTranscriptDeltaScores)) {
-                    deltaScores.push(currentTranscriptDeltaScores)
-                    resultRowClasses.push("diff-score")
-                }
             }
 
             $(`#${tool.toLowerCase()}-header`).nextAll().remove()
@@ -599,28 +584,19 @@
         $("#response-box").show()
         $(`#${tool.toLowerCase()}-header`).after(tableRows.join(""))
 
-        if (tool.toLowerCase() == "spliceai" && Object.keys(transcriptCategories).length > 1) {
+        if (Object.keys(transcriptCategories).length > 1) {
             $(".transcript-buttons").show()
-            if (transcriptCategories["main"]) {
-                $("#main-transcript-button").show()
-                updateTranscriptButtons("main")
-            } else {
-                $("#main-transcript-button").hide()
-                updateTranscriptButtons("diff-score")
-            }
+            updateTranscriptButtons("main")
         }
     }
 
     updateTranscriptButtons = (category) => {
-        $("#main-transcript-button, #diff-score-transcript-button, #all-transcript-button").removeClass("primary")
+        $("#main-transcript-button, #all-transcript-button").removeClass("primary")
         $(`#${category}-transcript-button`).addClass("primary")
 
         if (category == "main") {
             $(".spliceai-result-row").hide()
             $(".spliceai-result-row.main-transcript").show()
-        } else if (category == "diff-score") {
-            $(".spliceai-result-row").hide()
-            $(".spliceai-result-row.diff-score").show()
         } else if (category == "all") {
             $(".spliceai-result-row").show()
         }
