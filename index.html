@@ -484,7 +484,6 @@
         }
 
         //sort transcripts
-
         apiResponseJson.scores = _(apiResponseJson.scores).sortBy((s) => (  //compute sort key
                 100*(s['t_priority'].startsWith("M") ? 0 : 1) +
                 10* (s['t_type'] == "protein_coding" ? 0 : 1) +
@@ -588,6 +587,15 @@
         $("#response-box").show()
         $(`#${tool.toLowerCase()}-header`).after(tableRows.join(""))
 
+        if (transcriptCategories["MS"]) {
+            $(".main-transcript-label").html("MANE Select")
+        } else if (transcriptCategories["MP"]) {
+            $(".main-transcript-label").html("MANE Plus Clinical")
+        } else if (transcriptCategories["C"]) {
+            $(".main-transcript-label").html("Canonical")
+        } else {
+            $(".transcript-buttons").hide()
+        }
         if (Object.keys(transcriptCategories).length > 1) {
             $(".transcript-buttons").show()
             updateTranscriptButtons("main")
