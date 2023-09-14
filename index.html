@@ -306,7 +306,7 @@
         <div class="fourteen wide column">
             <div class="results-div">
                 <div id="response-box">
-                    <table class="ui stackable table">
+                    <table id="spliceai-table" class="ui stackable table">
                         <thead id="spliceai-header">
                         <tr>
                             <th style="background-color: white;" colspan="7">SpliceAI scores: <a href="https://www.cell.com/cell/pdf/S0092-8674(18)31629-5.pdf" target="_blank">
@@ -342,10 +342,10 @@
                         </tr>
                         </thead>
                     </table>
-                    <table class="ui stackable table transcript-buttons" style="border: none !important">
+                    <table id="transcript-button-table" class="ui stackable table" style="border: none !important">
                         <tbody>
                         <tr>
-                            <td colspan="7" style="padding: 10px 0px 50px 0px">
+                            <td colspan="7" style="padding: 10px 0px 25px 0px">
                                 <div class="ui buttons">
                                     <button id="main-transcript-button" class="ui button" onclick="updateTranscriptButtons('main')">
                                         <span class="main-transcript-label">MANE Select</span> Transcript
@@ -359,7 +359,7 @@
                         </tr>
                         </tbody>
                     </table>
-                    <table class="ui stackable table">
+                    <table id="pangolin-table" class="ui stackable table">
                         <thead id="pangolin-header">
                         <tr>
                             <th style="background-color: white;" colspan="7">Pangolin scores: <a
@@ -385,9 +385,9 @@
                         </tr>
                         </thead>
                     </table>
-                    <div id="igvDiv" style="width:100%; padding-top:10px"></div>
                 </div>
                 <div id="error-box" style="color:darkred; padding:10px 0px; font-size:medium"></div>
+                <div id="igvDiv" style="width:100%; padding-top:25px"></div>
             </div>
         </div>
         <div class="one wide column only-large-screen"></div>
@@ -449,9 +449,8 @@
     }
 
     showError = (errorMessage) => {
-        $("#error-box").html($("#error-box").html() + `<br />${errorMessage.toString()}<br />`)
+        $("#error-box").html( $("#error-box").html() + `<br />${errorMessage.toString()}<br />`)
         $("#error-box").show()
-
     }
 
     generateResultsTable = async (normalizedVariant, tool, variant, genomeVersion, mask, maxDistance) => {
@@ -464,32 +463,22 @@
         const alt = variantTokens[3]
 
         const urlArgs = `hg=${genomeVersion}&distance=${maxDistance}&mask=${mask}&variant=${chrom}-${pos}-${ref}-${alt}&raw=${variant}`
-        let apiResponseJson
+
+        let apiResponse
         try {
-            const apiResponse = await fetch(`${baseApiUrl}/${tool.toLowerCase()}/?${urlArgs}`)
-
-            if (!apiResponse.ok) {
-                console.log(apiResponse)
-                throw Error(apiResponse.status)
-            }
-
-            apiResponseJson = await apiResponse.json()
-            console.log(`${tool} API response:`, apiResponseJson)
-
-            if (apiResponse.error) {
-                throw Error(apiResponse.error)
-            }
+            apiResponse = await fetch(`${baseApiUrl}/${tool.toLowerCase()}/?${urlArgs}`)
         } catch(e) {
-            showError(`${tool} API call failed: ${e.message}`)
-            return
+            throw Error(`${tool} API call failed: Unable to reach server`)
         }
 
-        if (tool.toLowerCase() == "spliceai") {
-            window.spliceAIResponseJson = apiResponseJson
+        const apiResponseJson = await apiResponse.json()
+        console.log(`${tool} API response:`, apiResponseJson)
+
+        if (!apiResponse.ok || apiResponseJson.error) {
+            throw Error(`${tool} API call error ${apiResponseJson.error ? `: ${apiResponseJson.error}` : ""}`)
         }
-        else if (tool.toLowerCase() == "pangolin") {
-            window.pangolinResponseJson = apiResponseJson
-        }
+
+        //if (tool == "SpliceAI") throw Error(`${tool} error!!`)  // for testing API errors
 
         //sort transcripts
         apiResponseJson.scores = _(apiResponseJson.scores).sortBy((s) => (  //compute sort key
@@ -602,12 +591,14 @@
         } else if (transcriptCategories["C"]) {
             $(".main-transcript-label").html("Canonical")
         } else {
-            $(".transcript-buttons").hide()
+            $("#transcript-button-table").hide()
         }
         if (Object.keys(transcriptCategories).length > 1) {
-            $(".transcript-buttons").show()
+            $("#transcript-button-table").show()
             updateTranscriptButtons("main")
         }
+
+        return apiResponseJson
     }
 
     updateTranscriptButtons = (category) => {
@@ -654,36 +645,39 @@
         // otherwise try calling the Ensembl API on the user input
         const ensemblApiUrl = `https://${genomeVersion == '37' ? 'grch37.' : ''}rest.ensembl.org/vep/human/hgvs/${variant.trim()}?content-type=application/json&vcf_string=1`
 
+        let ensemblApiResponse
         try {
-            const response = await fetch(ensemblApiUrl)
-            if (!response.ok) {
-                throw new Error(`${response.status}`);
-            }
-            const ensemblApiResponseJson = await response.json()
-
-            if (!ensemblApiResponseJson[0] || !ensemblApiResponseJson[0].vcf_string) {
-                throw new Error(`Unexpected response: ${ensemblApiResponseJson}`);
-            }
-
-            console.log("Ensembl API response:", ensemblApiResponseJson)
-            return ensemblApiResponseJson[0].vcf_string
+            ensemblApiResponse = await fetch(ensemblApiUrl)
         } catch(e) {
             console.error(e)
-            throw Error(`Ensembl API call failed: ${e.message}`)
+            throw Error(`Ensembl API call failed: Unable to reach server`)
         }
-        /*
 
-            const refAlleleError = errorText.match(
+        const ensemblApiResponseJson = await ensemblApiResponse.json()
+        console.log(`Ensembl API response:`, ensemblApiResponseJson)
+
+        if (!ensemblApiResponse.ok || ensemblApiResponseJson.error) {
+            let errorText =`${ensemblApiResponseJson.error}`
+            const unableToParseHGVSErrorMatch = errorText.match("Unable to parse HGVS notation")
+            if (unableToParseHGVSErrorMatch) {
+                errorText = `Ensembl API is unable to parse the variant ${variant}`
+            }
+            const refAlleleErrorMatch = errorText.match(
                 new RegExp("[(]([ACGTRYSWKMBDHVN]+)[)] does not match reference allele given by HGVS notation"))
-            if (refAlleleError) {
-                errorText = `${variant} has an unexpected reference allele. The hg${genomeVersion} reference allele should be ${refAlleleError[1]}`
+            if (refAlleleErrorMatch) {
+                errorText = `${variant} has an unexpected reference allele. The hg${genomeVersion} reference allele should be ${refAlleleErrorMatch[1]}`
             }
 
-            errorText = "Ensembl API error: " + errorText
-         */
+            throw new Error(errorText);
+        }
+
+        if (!ensemblApiResponseJson[0] || !ensemblApiResponseJson[0].vcf_string) {
+            throw new Error(`Unexpected response: ${ensemblApiResponseJson}`);
+        }
+        return ensemblApiResponseJson[0].vcf_string
     }
 
-    const generateIgvConfig = (spliceAIResponseJson, pangolinResponseJson, genomeVersion) => {
+    const generateIgvConfig = (spliceaiResponseJson, pangolinResponseJson, genomeVersion) => {
         /* Generates an igv.js config json objects based on the predicted scores from SpliceAI and/or Pangolin
         *
         * Args:
@@ -695,7 +689,7 @@
         *   object: an igv.js config json object
         */
 
-        const apiResponseJson = spliceAIResponseJson || pangolinResponseJson
+        const apiResponseJson = spliceaiResponseJson || pangolinResponseJson
         let chrom = apiResponseJson.chrom
         chrom = `chr${chrom.replace('chr', '')}`
         const variantPos = apiResponseJson.pos
@@ -705,7 +699,7 @@
 
         let minPos = 1e9
         let maxPos = 0
-        for (const apiResponse of [spliceAIResponseJson, pangolinResponseJson]) {
+        for (const apiResponse of [spliceaiResponseJson, pangolinResponseJson]) {
             if (!apiResponse) {
                 continue
             }
@@ -753,11 +747,11 @@
             ],
         })
 
-        if (spliceAIResponseJson) {
+        if (spliceaiResponseJson) {
             tracks.push({
                 name: `SpliceAI (?)`,
-                description: `<b>Transcript: ${spliceAIResponseJson.allNonZeroScoresTranscriptId}</b> (${spliceAIResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
-                                SpliceAI predictions of splice acceptor & donor sites within the +/- ${spliceAIResponseJson.distance}bp window<br />
+                description: `<b>Transcript: ${spliceaiResponseJson.allNonZeroScoresTranscriptId}</b> (${spliceaiResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
+                                SpliceAI predictions of splice acceptor & donor sites within the +/- ${spliceaiResponseJson.distance}bp window<br />
                                 around <b>${chrom}:${variantPos} ${variantRef}>${variantAlt}</b>. This track shows markers that represent the scores for the<br/>
                                 <span style="color:#0000B4"><b>reference sequence</b></span> (without the variant) and the
                                 <span style="color:#05d0d2"><b>alternate sequence</b></span> (with the variant). <br />
@@ -772,14 +766,14 @@
                 rawOrDelta: "raw",
                 tool: "SpliceAI",
                 type: "spliceprediction",
-                features: spliceAIResponseJson.allNonZeroScores,
-                strand: spliceAIResponseJson.allNonZeroScoresStrand,
+                features: spliceaiResponseJson.allNonZeroScores,
+                strand: spliceaiResponseJson.allNonZeroScoresStrand,
             })
             tracks.push({
                 name: `SpliceAI (?)`,
-                description: `<b>Transcript: ${spliceAIResponseJson.allNonZeroScoresTranscriptId}</b> (${spliceAIResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
+                description: `<b>Transcript: ${spliceaiResponseJson.allNonZeroScoresTranscriptId}</b> (${spliceaiResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
                                 SpliceAI delta score predictions for gain and loss of splice acceptors and donors within a <br />
-                                +/- ${spliceAIResponseJson.distance}bp window around <b>${chrom}:${variantPos} ${variantRef}>${variantAlt}</b>.<br />
+                                +/- ${spliceaiResponseJson.distance}bp window around <b>${chrom}:${variantPos} ${variantRef}>${variantAlt}</b>.<br />
                                 This track shows markers at all positions where the |delta score| is ≥ 0.01. <br/>
                                 <b>Bar colors:</b> <b style="color:#FF0000">red</b> is for delta scores ≥ 0.8,
                                 <b style="color:#FFCB1F">yellow</b> is for delta scores ≥ 0.5,
@@ -791,8 +785,8 @@
                 rawOrDelta: "delta",
                 tool: "SpliceAI",
                 type: "spliceprediction",
-                features: spliceAIResponseJson.allNonZeroScores,
-                strand: spliceAIResponseJson.allNonZeroScoresStrand,
+                features: spliceaiResponseJson.allNonZeroScores,
+                strand: spliceaiResponseJson.allNonZeroScoresStrand,
             })
         }
 
@@ -918,10 +912,10 @@
     }
 
 
-    initIgvBrowser = async (genomeVersion) => {
-        if ((window.spliceAIResponseJson && window.spliceAIResponseJson.allNonZeroScores) || (
-            window.pangolinResponseJson && window.pangolinResponseJson.allNonZeroScores)) {
-            const igvConfig = generateIgvConfig(window.spliceAIResponseJson, window.pangolinResponseJson, genomeVersion)
+    initIgvBrowser = async (spliceaiResponseJson, pangolinResponseJson, genomeVersion) => {
+        if ((spliceaiResponseJson && spliceaiResponseJson.allNonZeroScores) || (
+            pangolinResponseJson && pangolinResponseJson.allNonZeroScores)) {
+            const igvConfig = generateIgvConfig(spliceaiResponseJson, pangolinResponseJson, genomeVersion)
             if (!window.igvBrowser) {
                 // create igv.js browser object if it hasn't been created yet
                 window.igvBrowser = await igv.createBrowser(document.getElementById("igvDiv"), igvConfig)
@@ -933,6 +927,7 @@
 
     }
 
+
     handleSubmit = async () => {
         // get user inputs from form elements
         const variant = $("#search-box").val().trim()
@@ -940,28 +935,36 @@
         const genomeVersion = $("input[name='hg']:checked").val().trim()
         const mask = $("input[name='mask']:checked").val().trim()
         const maxDistance = $("#max-distance-input").val().trim()
-        window.spliceAIResponseJson = window.pangolineResponseJson = null
 
+        //start processing submit
         $("#submit-button").addClass(["loading", "disabled"])
-        $("#response-box").hide()
-        $("#error-box").hide()
+        $("#response-box, #transcript-button-table, #error-box").hide()
         $("#error-box").html("")
-        $(".transcript-buttons").hide()
 
         // make API calls
-
-        let spliceAIResponseJson = {}
-        let pangolinResponseJson = {}
         try {
             const normalizedVariant = await normalizeVariant(variant, genomeVersion)
 
-            await Promise.all([
+            let [spliceaiResponseJson, pangolinResponseJson] = await Promise.all([
                 generateResultsTable(normalizedVariant, "SpliceAI", variant, genomeVersion, mask, maxDistance),
                 generateResultsTable(normalizedVariant, "Pangolin", variant, genomeVersion, mask, maxDistance),
-            ])
+            ].map(p => p.catch(e => ({'error': e.message}))))  // if an error is thrown, return {'error': e} instead of the JSON response
 
-            //apply results
-            $("#submit-button").removeClass(["loading", "disabled"])
+            if (spliceaiResponseJson.error) {
+                showError(`SpliceAI API error: ${spliceaiResponseJson.error}`)
+                spliceaiResponseJson = null
+                $("#spliceai-table, #transcript-button-table").hide()
+            } else {
+                $("#spliceai-table, #transcript-button-table").show()
+            }
+
+            if (pangolinResponseJson.error) {
+                showError(`Pangolin API error: ${pangolinResponseJson.error}`)
+                pangolinResponseJson = null
+                $("#pangolin-table").hide()
+            } else {
+                $("#pangolin-table").show()
+            }
 
             // update url params
             window.location.hash = "#" + $.param({
@@ -970,14 +973,17 @@
                 distance: maxDistance,
                 mask: mask,
             })
+
+            // update igv.js browser. Use delay to avoid blocking the event thread for too long during page init
+            setTimeout(() => initIgvBrowser(spliceaiResponseJson, pangolinResponseJson, genomeVersion), 10)
+
         } catch(e) {
             console.error(e)
-            showError(e)
-            return
+            showError(e.message)
         }
 
-        // update igv.js browser. Use delay to avoid blocking the event thread for too long during page init
-        setTimeout(() => initIgvBrowser(genomeVersion), 10)
+        //done processing submit
+        $("#submit-button").removeClass(["loading", "disabled"])
     }
 
     applyUrlSettingsToFormElements = () => {
