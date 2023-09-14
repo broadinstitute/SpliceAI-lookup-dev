@@ -479,6 +479,13 @@
             return
         }
 
+        if (tool.toLowerCase() == "spliceai") {
+            window.spliceaiResponseJson = apiResponseJson
+        }
+        else if (tool.toLowerCase() == "pangolin") {
+            window.pangolinResponseJson = apiResponseJson
+        }
+
         //TODO sort transcripts?
         //sort by (gene name, is canonical transcript, is non-coding transcriipt)
         //apiResponse.scores = _.chain(apiResponse.scores).sortBy((e) => {
@@ -692,16 +699,20 @@
         *   object: an igv.js config json object
         */
 
-        let chrom = spliceAIResponseJson.chrom || pangolinResponseJson.chrom
+        const apiResponseJson = spliceAIResponseJson || pangolinResponseJson
+        let chrom = apiResponseJson.chrom
         chrom = `chr${chrom.replace('chr', '')}`
-        const variantPos = spliceAIResponseJson.pos || pangolinResponseJson.pos
-        const variantRef = spliceAIResponseJson.ref || pangolinResponseJson.ref
-        const variantAlt = spliceAIResponseJson.alt || pangolinResponseJson.alt
+        const variantPos = apiResponseJson.pos
+        const variantRef = apiResponseJson.ref
+        const variantAlt = apiResponseJson.alt
         
 
         let minPos = 1e9
         let maxPos = 0
         for (const apiResponse of [spliceAIResponseJson, pangolinResponseJson]) {
+            if (!apiResponse) {
+                continue
+            }
             for (const scores of apiResponse.allNonZeroScores) {
                 scores["chr"] = chrom
                 scores["start"] = scores["pos"]
@@ -736,8 +747,8 @@
                     pos: variantPos,
                     start: variantPos - 1,
                     end: variantPos,
-                    referenceAllele: ref,
-                    alternateBases: alt,
+                    referenceAllele: variantRef,
+                    alternateBases: variantAlt,
                     names: ".", // id in VCF
                     info: {
                         variant: `${chrom}-${variantPos}-${variantRef}-${variantAlt}`,
@@ -809,7 +820,7 @@
             })
         }
 
-        const gencodeTrackPath = spliceAIResponseJson.hg == "37" ?
+        const gencodeTrackPath = genomeVersion == "37" ?
             "gs://tgg-viewer/ref/GRCh37/gencode_v44/knownGene_v44.hg19.sorted.txt.gz" :
             "gs://tgg-viewer/ref/GRCh38/gencode_v44/knownGene_v44.hg38.sorted.txt.gz"
 
@@ -883,7 +894,7 @@
         // igv.js reference genome specs are copied from https://igv.org/genomes/genomes.json
         // These must be specified explicitly rather than just setting the reference to "hg19" or "hg38" so that
         // the RefSeq gene track can be the first track (as described in https://github.com/igvteam/igv.js/issues/1518)
-        let reference = spliceAIResponseJson.hg == "37" ? {
+        let reference = genomeVersion == "37" ? {
             "id": "hg19",
             "name": "Human (GRCh37/hg19)",
             "fastaURL": "https://igv-genepattern-org.s3.amazonaws.com/genomes/seq/hg19/hg19.fasta",
@@ -917,6 +928,7 @@
         const genomeVersion = $("input[name='hg']:checked").val().trim()
         const mask = $("input[name='mask']:checked").val().trim()
         const maxDistance = $("#max-distance-input").val().trim()
+        window.spliceAIResponseJson = window.pangolineResponseJson = null
 
         $("#submit-button").addClass(["loading", "disabled"])
         $("#response-box").hide()
@@ -952,16 +964,18 @@
             return
         }
 
-        /*
-        const igvConfig = generateIgvConfig(spliceAIResponseJson, pangolinResponseJson, genomeVersion)
-        if (!window.igvBrowser) {
-            // create igv.js browser object if it hasn't been created yet
-            window.igvBrowser = await igv.createBrowser(document.getElementById("igvDiv"), igvConfig)
-        }  else {
-            console.log("Updating igv config to", igvConfig)
-            await window.igvBrowser.loadSessionObject(igvConfig)
+        // TODO figure out a better way to retrieve the API responses here
+        if ((window.spliceAIResponseJson && window.spliceAIResponseJson.allNonZeroScores) || (
+             window.pangolinResponseJson && window.pangolinResponseJson.allNonZeroScores)) {
+            const igvConfig = generateIgvConfig(window.spliceAIResponseJson, window.pangolinResponseJson, genomeVersion)
+            if (!window.igvBrowser) {
+                // create igv.js browser object if it hasn't been created yet
+                window.igvBrowser = await igv.createBrowser(document.getElementById("igvDiv"), igvConfig)
+            } else {
+                console.log("Updating igv config to", igvConfig)
+                await window.igvBrowser.loadSessionObject(igvConfig)
+            }
         }
-        */
     }
 
     applyUrlSettingsToFormElements = () => {
