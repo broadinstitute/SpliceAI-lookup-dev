@@ -414,6 +414,13 @@
         "N": 0,
     }
 
+    formatScore = (score) => {
+        if (score == null) {
+            return ""
+        }
+        return parseFloat(score).toFixed(2)
+    }
+
     getScoreStyle = (score) => {
         score = parseFloat(score)
 
@@ -568,7 +575,7 @@
                 }
                 row += `
                         <td>${label}</td>
-                        <td ${getScoreStyle(scores[DS])}>${scores[DS]}</td>
+                        <td ${getScoreStyle(scores[DS])}>${formatScore(scores[DS])}</td>
                         <td>${
                             (
                                 parseFloat(scores[DS]) == 0 &&
@@ -576,8 +583,8 @@
                                 parseFloat(scores[RAW_ALT]) == 0
                             )? "" : scores[DP] + " bp"}
                         </td>
-                        <td>${scores[RAW_REF]}</td>
-                        <td>${scores[RAW_ALT]}</td>
+                        <td>${formatScore(scores[RAW_REF])}</td>
+                        <td>${formatScore(scores[RAW_ALT])}</td>
                 `
             }
             row += "</tr>"
