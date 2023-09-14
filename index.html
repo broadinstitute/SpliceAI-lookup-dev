@@ -483,13 +483,13 @@
             window.pangolinResponseJson = apiResponseJson
         }
 
-        //TODO sort transcripts?
-        //sort by (gene name, is canonical transcript, is non-coding transcriipt)
-        //apiResponse.scores = _.chain(apiResponse.scores).sortBy((e) => {
-        //    return 1
-        //}).value()
+        //sort transcripts
+        console.log("sorting", apiResponseJson.scores)
+        apiResponseJson.scores = _(apiResponseJson.scores).sortBy(
+            (s) => (s['t_priority'].startsWith("M") ? 0 : 10) + (s['t_type'] == "protein_coding" ? 0 : 1)).values()
+        console.log("sorted", apiResponseJson.scores)
 
-        const MAIN_TRANSCRIPT_LOOKUP = {
+        const TRANSCRIPT_PRIORITY_VIEW_LOOKUP = {
             "MS": `<a href="https://www.ncbi.nlm.nih.gov/refseq/MANE" target="_blank">MANE Select transcript</a>`,
             "MP": `<a href="https://www.ncbi.nlm.nih.gov/refseq/MANE" target="_blank">MANE Plus Clinical transcript</a>`,
             "C": "Canonical transcript",
@@ -502,16 +502,16 @@
             const subRowCount = isPangolin ? 2 : 4
             const strand = scores['t_strand'] == "-" ? "minus" : "plus"
             const gnomadVersion = genomeVersion === "38" ? "gnomad_r3" : "gnomad_r2_1"
-            const isMainTranscript = scores['t_priority'] != "N"
+            const isMainTranscript = scores['t_priority'] != "N" && (scores['t_priority'] != "C" || transcriptCategories["MS"] == undefined)
             const refSeqLink = scores['t_refseq_ids']? `/ <a href="https://www.ncbi.nlm.nih.gov/search/all/?term=${scores['t_refseq_ids'][0]}" target="_blank">${scores['t_refseq_ids'][0]}</a>` : ""
+
+            transcriptCategories[scores['t_priority']] = true
 
             const resultRowClasses = [`${tool.toLowerCase()}-result-row`]
             if (isMainTranscript) {
                 resultRowClasses.push("main-transcript")
-                transcriptCategories["main"] = true
             } else {
                 resultRowClasses.push("non-main-transcript")
-                transcriptCategories["non-main"] = true
             }
             if(scores['t_type'] == "protein_coding") {
                 resultRowClasses.push("coding-transcript")
@@ -537,7 +537,7 @@
                             </div><br />
                             <br class="only-large-screen" />
                         <div class="small-link"><a href="https://www.gencodegenes.org/pages/biotypes.html" target="_blank">${scores['t_type'].replace(/_/g, " ")}</a></div>
-                        <div class="small-link">${isMainTranscript ? MAIN_TRANSCRIPT_LOOKUP[scores['t_priority']] : ""}</div>
+                        <div class="small-link">${isMainTranscript ? TRANSCRIPT_PRIORITY_VIEW_LOOKUP[scores['t_priority']] : ""}</div>
                         <div class="small-link"> (${strand} strand)</div>
                     </div><br class="only-large-screen" />
                     <br class="only-large-screen" />
