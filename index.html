@@ -537,7 +537,7 @@
                             </div><br />
                             <br class="only-large-screen" />
                         <div class="small-link"><a href="https://www.gencodegenes.org/pages/biotypes.html" target="_blank">${scores['t_type'].replace(/_/g, " ")}</a></div>
-                        <div class="small-link">${isMainTranscript ? TRANSCRIPT_PRIORITY_VIEW_LOOKUP[scores['t_priority']] : ""}</div>
+                        <div class="small-link">${scores['t_priority'] != "N" ? TRANSCRIPT_PRIORITY_VIEW_LOOKUP[scores['t_priority']] : ""}</div>
                         <div class="small-link"> (${strand} strand)</div>
                     </div><br class="only-large-screen" />
                     <br class="only-large-screen" />
