@@ -484,10 +484,13 @@
         }
 
         //sort transcripts
-        console.log("sorting", apiResponseJson.scores)
-        apiResponseJson.scores = _(apiResponseJson.scores).sortBy(
-            (s) => (s['t_priority'].startsWith("M") ? 0 : 10) + (s['t_type'] == "protein_coding" ? 0 : 1)).values()
-        console.log("sorted", apiResponseJson.scores)
+
+        apiResponseJson.scores = _(apiResponseJson.scores).sortBy((s) => (  //compute sort key
+                100*(s['t_priority'].startsWith("M") ? 0 : 1) +
+                10* (s['t_type'] == "protein_coding" ? 0 : 1) +
+                -1*  TRANSCRIPT_PRIORITY[s['t_priority']]
+        )).values()
+
 
         const TRANSCRIPT_PRIORITY_VIEW_LOOKUP = {
             "MS": `<a href="https://www.ncbi.nlm.nih.gov/refseq/MANE" target="_blank">MANE Select transcript</a>`,
@@ -898,6 +901,21 @@
     }
 
 
+    initIgvBrowser = async (genomeVersion) => {
+        if ((window.spliceAIResponseJson && window.spliceAIResponseJson.allNonZeroScores) || (
+            window.pangolinResponseJson && window.pangolinResponseJson.allNonZeroScores)) {
+            const igvConfig = generateIgvConfig(window.spliceAIResponseJson, window.pangolinResponseJson, genomeVersion)
+            if (!window.igvBrowser) {
+                // create igv.js browser object if it hasn't been created yet
+                window.igvBrowser = await igv.createBrowser(document.getElementById("igvDiv"), igvConfig)
+            } else {
+                console.log("Updating igv config to", igvConfig)
+                await window.igvBrowser.loadSessionObject(igvConfig)
+            }
+        }
+
+    }
+
     handleSubmit = async () => {
         // get user inputs from form elements
         const variant = $("#search-box").val().trim()
@@ -941,18 +959,8 @@
             return
         }
 
-        // TODO figure out a better way to retrieve the API responses here
-        if ((window.spliceAIResponseJson && window.spliceAIResponseJson.allNonZeroScores) || (
-             window.pangolinResponseJson && window.pangolinResponseJson.allNonZeroScores)) {
-            const igvConfig = generateIgvConfig(window.spliceAIResponseJson, window.pangolinResponseJson, genomeVersion)
-            if (!window.igvBrowser) {
-                // create igv.js browser object if it hasn't been created yet
-                window.igvBrowser = await igv.createBrowser(document.getElementById("igvDiv"), igvConfig)
-            } else {
-                console.log("Updating igv config to", igvConfig)
-                await window.igvBrowser.loadSessionObject(igvConfig)
-            }
-        }
+        // update igv.js browser. Use delay to avoid blocking the event thread for too long during page init
+        setTimeout(() => initIgvBrowser(genomeVersion), 10)
     }
 
     applyUrlSettingsToFormElements = () => {
