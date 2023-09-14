@@ -245,21 +245,22 @@
                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues" target="_blank">SpliceAI-lookup/issues</a>: issues or feature requests for this website.
                     <a href="https://github.com/illumina/SpliceAI" target="_blank">SpliceAI/issues</a>: issues with the underlying SpliceAI model.<br/>
                     <br/>
-                    <b>Sep 13, 2023</b><br/>
+                    <b>Sep 14, 2023</b><br/>
                     - <a href="https://github.com/pj-sullivan">@pj-sullivan</a> added controls to show/hide transcripts<br/>
-                    - added MANE select transcript labels<br/>
-                    - updated to gencode v44 (previously on v43)<br/>
-                    - added transcript strand and more annotations to Pangolin results<br/>
-                    <br/>
-                    <b>May 22, 2023</b><br/>
-                    - changed defaults to 'masked' and max distance to 500bp<br/>
-                    - retired <b>Illumina precomputed scores</b> since they were created using Gencode v24
-                    and max distance = 50bp and so can differ from computed scores which are based on the latest Gencode.<br/>
+                    - added MANE Select transcript labels<br/>
+                    - updated to gencode v44 "basic" annotations (instead of comprehensive). These have fewer transcripts per gene.<br/>
+                    - added transcript strand and more annotations to Pangolin results.<br/>
+                    - added demo of igv.js visualizations. TODO: allow users to select which tracks to show.<br/>
                     <br/>
 
                     <a id="more-details3-button" href="#"
                        onclick="$('#more-details3').show();$('#more-details3-button').hide();">[show older updates]</a>
                     <div id="more-details3" style="display:none">
+                        <b>May 22, 2023</b><br/>
+                        - changed defaults to 'masked' and max distance to 500bp<br/>
+                        - retired <b>Illumina precomputed scores</b> since they were created using Gencode v24
+                        and max distance = 50bp and so can differ from computed scores which are based on the latest Gencode.<br/>
+                        <br/>
                         <b>May 12, 2023</b><br/>
                         - added REF & ALT score columns to show SpliceAI's underlying predictions for each haplotype
                         (using <a href="https://github.com/Illumina/SpliceAI/pull/92">SpliceAI PR by @h-joshi</a>).
