@@ -6,7 +6,7 @@
             baseApiUrl = location.origin
         }
 
-        baseApiUrl = "http://localhost:8080"
+        //baseApiUrl = "http://localhost:8080"
 
         console.log("Using SpliceAI-lookup API url:", baseApiUrl)
     </script>
@@ -462,6 +462,7 @@
             const apiResponse = await fetch(`${baseApiUrl}/${tool.toLowerCase()}/?${urlArgs}`)
 
             if (!apiResponse.ok) {
+                console.log(apiResponse)
                 throw Error(apiResponse.status)
             }
 
