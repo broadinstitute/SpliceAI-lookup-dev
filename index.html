@@ -411,7 +411,7 @@
         if (score == null) {
             return ""
         }
-        return parseFloat(score).toFixed(2)
+        return Math.abs(parseFloat(score)).toFixed(2)
     }
 
     getScoreStyle = (score) => {
