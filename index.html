@@ -134,30 +134,18 @@
                                 </div>
                                 <a id="more-details1-button" href="#" onclick="$('#more-details1').show();$('#more-details1-button').hide();">[more details]</a>
                                 <div id="more-details1" style="display:none">
-                                    <br/>
-                                    This web interface and the underlying <a href="https://spliceailookup-api.broadinstitute.org/" target="_blank">SpliceAI
-                                    server</a> are developed and maintained by the <a href="https://the-tgg.org/" target="_blank">TGG</a> at the <a
-                                        href="https://www.broadinstitute.org/" target="_blank">Broad Institute</a>.<br/>
-                                    The <a href="https://spliceailookup-api.broadinstitute.org/" target="_blank">SpliceAI
-                                    server</a> optionally uses pre-computed scores provided by Illumina for SNVs and small InDels, but runs the <a
-                                        href="https://github.com/Illumina/SpliceAI" target="_blank">SpliceAI model</a>
-                                    directly for scores not available in the pre-computed files - such as for larger
-                                    InDels, non-default "Max distance" values, etc.<br/>
-                                    <br/>
-                                    NOTE: The server supports not more than several queries per-minute per-user. If you
-                                    need to batch-process many variants, please use the
+                                    <br />
+                                    This website is developed and maintained by the <a href="https://the-tgg.org/" target="_blank">TGG</a> at the <a href="https://www.broadinstitute.org/" target="_blank">Broad Institute</a>.<br />
+                                    When the user enters a variant, it runs SpliceAI and Pangolin models on this variant and then displays the scores.<br />
+                                    <br />
+                                    For more information about SpliceAI, see <a href="https://doi.org/10.1016/j.cell.2018.12.015" target="_blank">Jaganathan et al, Cell 2019</a> and <a href="https://github.com/Illumina/SpliceAI" target="_blank">github.com/Illumina/SpliceAI</a>,
+                                    and this <a href="https://www.youtube.com/watch?v=oJvhj-tYbBI" target="_blank">recorded talk</a> by Kishore Jaganathan.<br />
+                                    For more information about Pangolin, see [<a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02664-4" target="_blank">Zeng & Li 2022</a>].
+                                    <br />
+                                    NOTE: The server supports no more than several queries per-minute per-user. If you need to batch-process many variants, please use the
                                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/blob/master/README.md#local-install" target="_blank">source code</a>
-                                    to set up your own local instance of the API server or just run the underlying SpliceAI model directly.<br/>
-                                    <br/>
-                                    For more information about the SpliceAI model, see <a
-                                        href="https://doi.org/10.1016/j.cell.2018.12.015" target="_blank">Jaganathan et
-                                    al, Cell 2019</a> and <a href="https://github.com/Illumina/SpliceAI" target="_blank">github.com/Illumina/SpliceAI</a>,
-                                    and this <a href="https://www.youtube.com/watch?v=oJvhj-tYbBI" target="_blank">recorded
-                                    talk</a> by Kishore Jaganathan.<br/>
-                                    <br/>
-                                    Since February 2023, <a href="https://github.com/tkzeng/Pangolin" target="_blank">Pangolin scores</a> from [<a
-                                        href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02664-4"
-                                        target="_blank">Zeng & Li 2022</a>] are also shown below the SpliceAI results.
+                                    to set up your own local instance of the API server or just run the underlying SpliceAI model directly.<br />
+                                    <br />
                                 </div>
                             </div>
                             <br/>
