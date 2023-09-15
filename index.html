@@ -1,14 +1,18 @@
 <html>
 <head>
     <script>
-        let baseApiUrl = "https://spliceailookup-api.broadinstitute.org"
-        if (location.origin && location.origin.startsWith("http") && !location.origin.includes("broadinstitute.")) {
+        const isBetaSite = !location.origin.includes("spliceailookup.broadinstitute.org")
+
+        let baseApiUrl
+        if (location.origin.includes("broadinstitute.")) {
+            baseApiUrl = "https://spliceailookup-api.broadinstitute.org"
+        } else if (location.origin && location.origin.startsWith("http")) {
             baseApiUrl = location.origin
+        } else {
+            baseApiUrl = "http://localhost:8080"
         }
 
-        //baseApiUrl = "http://localhost:8080"
-
-        console.log("Using SpliceAI-lookup API url:", baseApiUrl)
+        console.log(isBetaSite ? "BETA site" : "Production site.", "Using SpliceAI-lookup API url:", baseApiUrl)
     </script>
     <meta content="width=device-width, initial-scale=1" charset="utf-8" name="viewport"/>
     <title>SpliceAI Lookup</title>
@@ -124,9 +128,9 @@
                     <div class="twelve wide column">
                         <div style="padding:25px 0px">
                             <div>
-                                <div style="display:inline-block; min-width: 430px; ">Enter a variant below to see its
+                                <div style="display:inline-block; min-width: 700px; ">Enter a variant below to see its
                                     <a href="https://www.cell.com/cell/pdf/S0092-8674(18)31629-5.pdf" target="_blank">SpliceAI</a>
-                                    and <a href="https://github.com/tkzeng/Pangolin" target="_blank">Pangolin</a> scores.
+                                    and <a href="https://github.com/tkzeng/Pangolin" target="_blank">Pangolin</a> scores <span id="other-version-of-this-site-link"></span>
                                 </div>
                                 <a id="more-details1-button" href="#" onclick="$('#more-details1').show();$('#more-details1-button').hide();">[more details]</a>
                                 <div id="more-details1" style="display:none">
@@ -174,7 +178,7 @@
                                     <tr style="display:none;" class="more-details2"><td>1:930130:C:G</td><td><i>position with overlapping genes</i></td></tr>
                                     <tr style="display:none;" class="more-details2"><td>1-1042601-A-AGAGAG</td><td><i>insertion of GAGAG</i></td></tr>
                                     <tr style="display:none;" class="more-details2"><td>1-1042466-GGGC-G</td><td><i>deletion of GGC</i></td></tr>
-                                    <tr style="display:none;" class="more-details2"><td>NM_000249.4(MLH1):c.116G>A</td><td><i>another HGVS exapmle</i></td></tr>
+                                    <tr style="display:none;" class="more-details2"><td>NM_000249.4(MLH1):c.116G>A</td><td><i>another HGVS example</i></td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -1012,6 +1016,10 @@
     }
 
     $(document).ready(() => {
+        $("#other-version-of-this-site-link").html(isBetaSite ?
+            `or <a href="https://spliceailookup.broadinstitute.org">switch to the production version</a> of this site.` :
+            `or <a href="https://broadinstitute.github.io/SpliceAI-lookup-dev/index.html">switch to the BETA version</a> of this site to test out future features.`)
+
         // init UI elements
         $('.ui.radio.checkbox').checkbox()
         $('.question').popup()
