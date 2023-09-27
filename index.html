@@ -238,6 +238,10 @@
                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues" target="_blank">SpliceAI-lookup/issues</a>: issues or feature requests for this website.
                     <a href="https://github.com/illumina/SpliceAI" target="_blank">SpliceAI/issues</a>: issues with the underlying SpliceAI model.<br/>
                     <br/>
+                    <b>Sep 26, 2023</b><br/>
+                    - Fixed Pangolin bug that could cause masked scores to be computed incorrectly whenever a variant overlapped more than one gene. More
+                    details are provided by <a href="https://github.com/invitae/pangolin/pull/5">@kazmiekr</a><br />
+                    <br/>
                     <b>Sep 14, 2023</b><br/>
                     - <a href="https://github.com/pj-sullivan">@pj-sullivan</a> added controls to show/hide transcripts<br/>
                     - added MANE Select transcript labels<br/>
@@ -323,14 +327,14 @@
                             <th style="white-space: nowrap">&#916;&nbsp; score<i class='question circle outline icon'
                                                                                  data-content="Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). In the SpliceAI paper, a detailed characterization is provided for 0.2 (high recall), 0.5 (recommended), and 0.8 (high precision) cutoffs. Consequently, scores of 0.2 or higher appear in green, 0.5 or higher appear in yellow, and 0.8 or higher appear in red."></i>
                             </th>
-                            <th style="white-space: nowrap">pre-mRNA position<i class='question circle outline icon'
-                                                                                data-content="For each variant, SpliceAI looks within a window (+/- 500bp by default) to see how the variant affects the probabilities of different positions in the pre-mRNA being splice acceptors or donors. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are to the left of the variant in genomic coords, regardless of transcript strand."></i>
+                            <th style="white-space: nowrap">position<i class='question circle outline icon'
+                                                                                data-content="For each variant, SpliceAI looks within a window (+/- 500bp by default) to see how the variant affects the probabily of different positions serving as splice acceptors or donors. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are to the left of the variant in genomic coords, regardless of transcript strand."></i>
                             </th>
                             <th style="white-space: nowrap">REF score<i class='question circle outline icon'
-                                                                        data-content="SpliceAI's computed probability that the given pre-mRNA position is a splice acceptor or donor based on the reference haplotype sequence. SpliceAI computes delta scores by taking the difference between the REF and ALT score at each position."></i>
+                                                                        data-content="SpliceAI's computed probability that the given position is a splice acceptor or donor based on the reference haplotype sequence. SpliceAI computes delta scores by taking the difference between the REF and ALT score at each position."></i>
                             </th>
                             <th style="white-space: nowrap">ALT score<i class='question circle outline icon'
-                                                                        data-content="SpliceAI's computed probability that the given pre-mRNA position is a splice acceptor or donor based on the alternate haplotype sequence. SpliceAI computes delta scores by taking the difference between the REF and ALT score at each position."></i>
+                                                                        data-content="SpliceAI's computed probability that the given position is a splice acceptor or donor based on the alternate haplotype sequence. SpliceAI computes delta scores by taking the difference between the REF and ALT score at each position."></i>
                             </th>
                         </tr>
                         </thead>
@@ -368,8 +372,8 @@
                             <th style="white-space: nowrap">&#916;&nbsp; score<i class='question circle outline icon'
                                                                                  data-content="Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). Pangolin does not recommend specific score thresholds; however, here scores of 0.2 or higher appear in green, 0.5 or higher appear in yellow, and 0.8 or higher appear in red."></i>
                             </th>
-                            <th style="white-space: nowrap">pre-mRNA position<i class='question circle outline icon'
-                                                                                data-content="For each variant, Pangolin looks within a window (+/- 500bp by default) to see how the variant affects the probabilities of different positions in the pre-mRNA being splice sites. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are upstream (5&#039;) of the variant, and positive are downstream (3&#039;) of the variant."></i>
+                            <th style="white-space: nowrap">position<i class='question circle outline icon'
+                                                                                data-content="For each variant, Pangolin looks within a window (+/- 500bp by default) to see how the variant affects the probability of splicing occuring at different positions. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are upstream (5&#039;) of the variant, and positive are downstream (3&#039;) of the variant."></i>
                             </th>
                             <th style="white-space: nowrap">REF score<i class='question circle outline icon'
                                                                         data-content="Working on it!"></i></th>
