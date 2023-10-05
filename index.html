@@ -9,8 +9,8 @@
         } else if (location.origin && location.origin.startsWith("http")) {
             baseApiUrl = location.origin
         } else {
-            //baseApiUrl = "https://spliceailookup-api.broadinstitute.org"
-            baseApiUrl = "http://localhost:8080"
+            baseApiUrl = "https://spliceailookup-api.broadinstitute.org"
+            //baseApiUrl = "http://localhost:8080"
         }
 
         console.log(isBetaSite ? "BETA site" : "Production site.", "Using SpliceAI-lookup API url:", baseApiUrl)
@@ -937,7 +937,7 @@
 
                 tracks.push({
                     name: `Pangolin (?)`,
-                    description: `This track shows <b>A</b> (acceptor) and <b>D</b> (donor) symbols at positions where Pangolin predicts a delta score ≥ 0.01. <br/>
+                    description: `This track shows a <b>P</b> at positions where Pangolin predicts a delta score ≥ 0.01. <br/>
                                   Vertical lines are <b style="color:#FF0000">red</b> for delta scores ≥ 0.8,
                                   <b style="color:#FFCB1F">yellow</b> for delta scores ≥ 0.5, and
                                   <b style="color:#1fb839">green</b> for delta scores ≥ 0.2<br />
@@ -1009,7 +1009,7 @@
 
                 const filenameSuffix = normalized ? ".normalized" : ""
                 tracks.push({
-                    name: `GTEx ${tissue}: ${sampleCount} samples${normalized ? '': ': all'} (?)`,
+                    name: `GTEx ${tissue}: ${normalized ? 'per-sample average:': `summed over all ${sampleCount} samples`} (?)`,
                     description: `This track shows the combined splice junctions from all ${sampleCount} ${tissue} samples available in GTEx v8.
                                   Splice junctions are labeled with the total number of RNA-seq reads that supported the junction, summed across the ${sampleCount} samples${normalized ? ' and divided by ' + sampleCount: ''}.
                                   The coverage track shows the total number of RNA-seq reads that overlap each position, summed across all samples${normalized ? ' and divided by ' + sampleCount: ''}.`,
