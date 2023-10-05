@@ -391,10 +391,8 @@
                             </tr>
                         </thead>
                     </table>
-                </div>
-                <div id="error-box" style="color:darkred; padding:10px 0px; font-size:medium"></div>
-                <table id="igv-table" class="ui stackable table" style="margin-top: 30px; display: none">
-                    <thead style="background-color:white">
+                    <table id="igv-table" class="ui stackable table" style="margin-top: 30px; display: none">
+                        <thead style="background-color:white">
                         <tr>
                             <th style="background-color:white" colspan="5"><b>Visualizations:</b></th>
                         </tr>
@@ -420,46 +418,48 @@
                                    data-content="Miscellaneous reference tracks"></i>
                             </th>
                         </tr>
-                    </thead>
-                    <tr>
-                        <td>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-variant" checked><label>variant track</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-ref-alt" checked><label>SpliceAI REF &amp; ALT scores</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-delta-scores" checked><label>SpliceAI &#916;&nbsp; scores</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-pangolin-delta-scores" checked><label>Pangolin &#916;&nbsp; scores</label></div>
-                        </td>
-                        <td>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-blood"><label>blood</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-fibroblasts"><label>fibroblasts</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-muscle"><label>muscle</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-lymphocytes"><label>LCLs</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-brain-cortex"><label>brain cortex</label></div>
-                        </td>
-                        <td>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-blood-all"><label>blood</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-fibroblasts-all"><label>fibroblasts</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-muscle-all"><label>muscle</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-lymphocytes-all"><label>LCLs</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-brain-cortex-all"><label>brain cortex</label></div>
-                        </td>
-                        <td>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-gain-0.5"><label>gain ≥ 0.5</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-loss-0.5"><label>loss ≥ 0.5</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-gain-0.2"><label>gain ≥ 0.2</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-loss-0.2"><label>loss ≥ 0.2</label></div>
-                        </td>
-                        <td>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-100-mer-mappability"><label>100-mer mappability</label></div>
-                            <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-segdups"><label>segmental duplications</label></div>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="5" style="padding-left: 0px">
-                            <button id="show-igv-button" class="ui primary button" style="margin-bottom: 15px">Show</button>
-                        </td>
-                    </tr>
-                </table>
-                <div id="igv-div" style="width:100%; padding-top:25px; display: none"></div>
+                        </thead>
+                        <tr>
+                            <td>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-variant" checked><label>variant track</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-ref-alt" checked><label>SpliceAI REF &amp; ALT scores</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-delta-scores" checked><label>SpliceAI &#916;&nbsp; scores</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-pangolin-delta-scores" checked><label>Pangolin &#916;&nbsp; scores</label></div>
+                            </td>
+                            <td>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-blood"><label>blood</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-fibroblasts"><label>fibroblasts</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-muscle"><label>muscle</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-lymphocytes"><label>LCLs</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-brain-cortex"><label>brain cortex</label></div>
+                            </td>
+                            <td>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-blood-all"><label>blood</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-fibroblasts-all"><label>fibroblasts</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-muscle-all"><label>muscle</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-lymphocytes-all"><label>LCLs</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-brain-cortex-all"><label>brain cortex</label></div>
+                            </td>
+                            <td>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-gain-0.5"><label>gain ≥ 0.5</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-loss-0.5"><label>loss ≥ 0.5</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-gain-0.2"><label>gain ≥ 0.2</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-loss-0.2"><label>loss ≥ 0.2</label></div>
+                            </td>
+                            <td>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-100-mer-mappability"><label>100-mer mappability</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-segdups"><label>segmental duplications</label></div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="5" style="padding-left: 0px">
+                                <button id="show-igv-button" class="ui primary button" style="margin-bottom: 15px">Show</button>
+                            </td>
+                        </tr>
+                    </table>
+                    <div id="igv-div" style="width:100%; padding-top:25px; display: none"></div>
+                </div>
+                <div id="error-box" style="color:darkred; padding:10px 0px; font-size:medium"></div>
             </div>
         </div>
         <div class="one wide column only-large-screen"></div>
@@ -586,9 +586,21 @@
         return ensemblApiResponseJson[0].vcf_string
     }
 
+
     /*
     const generateVariantAnnotationTable = async (normalizedVariant, genomeVersion) => {
-        const myVariantApiUrl = ` https://myvariant.info/v1/q=chr${normalizedVariant}${genomeVersion == '38' ? '&hg38=true' : ''}`
+        const matchedRegExp = normalizedVariant.match(VARIANT_RE)
+        if (!matchedRegExp) {
+            console.error(`Unable to parse normalized variant: ${normalizedVariant}`)
+            return {}
+        }
+        // was able to parse the user input using a simple reg-exp
+        const chrom = matchedRegExp[2].toUpperCase()
+        const pos = parseInt(matchedRegExp[3].replace(/,/g, ""))
+        const ref = matchedRegExp[4]
+        const alt = matchedRegExp[5]
+
+        const myVariantApiUrl = `https://myvariant.info/v1/variant/chr${chrom}:g.${pos}${ref}>${alt}${genomeVersion == '38' ? '?assembly=hg38' : ''}`
 
         let myVariantApiResponse
         try {
@@ -601,9 +613,10 @@
         const myVariantApiResponseJson = await myVariantApiResponse.json()
         console.log(`MyVariant API response:`, myVariantApiResponseJson)
 
-        return {}
+        return myVariantApiResponseJson
     }
     */
+
 
     const generateResultsTable = async (normalizedVariant, tool, variant, genomeVersion, maxDistance, mask, showRefAltScoreColumns) => {
         /* Generate the results table to show either the SpliceAI or Pangolin scores */
@@ -792,7 +805,7 @@
                         console.log(e)
                     }
                 }
-                console.log("Retrieved tracksToShow from local storage", tracksToShow)
+                //console.log("Retrieved tracksToShow from local storage", tracksToShow)
             }
             
         } else {
@@ -811,7 +824,7 @@
                 tracksToShow[`igv-gtex-${tissue}`] = $(`input[name='igv-gtex-${tissue}']`).prop("checked")
                 tracksToShow[`igv-gtex-${tissue}-all`] = $(`input[name='igv-gtex-${tissue}-all']`).prop("checked")
             }
-            console.log("Set local storage tracksToShow", tracksToShow)
+            //console.log("Set local storage tracksToShow", tracksToShow)
             localStorage.setItem("tracksToShow", JSON.stringify(tracksToShow))
         }
         
@@ -1121,6 +1134,7 @@
         try {
             const normalizedVariant = await normalizeVariant(variant, genomeVersion)
 
+            //let [spliceaiResponseJson, pangolinResponseJson, variantAnnotationsJson] = await Promise.all([
             let [spliceaiResponseJson, pangolinResponseJson] = await Promise.all([
                 generateResultsTable(normalizedVariant, "SpliceAI", variant, genomeVersion, maxDistance, mask, showRefAltColumns),
                 generateResultsTable(normalizedVariant, "Pangolin", variant, genomeVersion, maxDistance, mask, showRefAltColumns),
