@@ -1185,6 +1185,8 @@
         const maskFromUrl = $.urlParam('mask')
         if (maskFromUrl) {
             $(`input[name='mask']`).prop("checked", maskFromUrl == "1")
+        } else {
+            $(`input[name='mask']`).prop("checked", true)  //default to mask
         }
 
         const showRefAltColumnsFromUrl = $.urlParam('ra')
