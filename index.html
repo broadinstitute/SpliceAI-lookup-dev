@@ -1339,7 +1339,7 @@
         $("#response-box").hide()
         $("#left-align-question-mark").popup({
             hoverable: true,
-            html: "Insertions or deletions in repetative regions can have multiple equivalent representations in variant format. For example, on hg38, chr4:3074877 C > CCAG represents the same non-reference haplotype as chr4:3074880 C > CCAG. Selecting this checkbox will make SpliceAI-lookup left-align the input variant - ie. shift it to it's left-most equivalent position - before passing it to the SpliceAI model. Although this won't change the input sequence around the variant, it will change the center position and edges of the SpliceAI reference context window, and so may lead to different delta scores. For an example where this happens, see <a href='https://github.com/broadinstitute/SpliceAI-lookup/issues/67'>issue #67</a>",
+            html: "Insertions or deletions in repetative regions can have multiple equivalent representations in variant format. For example, on hg38, chr4:3074877 C > CCAG represents the same non-reference haplotype as chr4:3074880 C > CCAG. Selecting this checkbox will make SpliceAI-lookup left-align the input variant - ie. shift it to it's left-most equivalent position - before passing it to the SpliceAI model. Although this won't change the input sequence around the variant, it will change the center position and edges of the SpliceAI reference context window, and so may lead to different delta scores. For an example of this, see <a href='https://github.com/broadinstitute/SpliceAI-lookup/issues/67'>issue #67</a>",
             position: "left center",
         })
 
