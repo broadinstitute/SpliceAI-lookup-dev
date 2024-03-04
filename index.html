@@ -748,7 +748,7 @@
 
             const match1 = variant.match(VARIANT_RE)
             const match2 = normalizedVariant.match(VARIANT_RE)
-            const normalizedVariantDiv = (match1[2] == match2[2] && match1[3] == match2[3] && match1[4] == match2[4] && match1[5] == match2[5]) ? "" :
+            const normalizedVariantDiv = match1 && match2 && match1[2] == match2[2] && match1[3] == match2[3] && match1[4] == match2[4] && match1[5] == match2[5] ? "" :
                 `<br class="only-large-screen"/><div style="margin-left:5px;margin-right:10px; display: inline-block; color:#333333"><i>⇒ ${chrom}:${pos} ${ref}&gt;${alt}</i></div><br class="only-large-screen"/>`
 
             $(`#${tool.toLowerCase()}-header`).nextAll().remove()
@@ -1215,7 +1215,6 @@
         const mask = $(`input[name='mask']`).prop("checked") ? "1" : "0";
         const showRefAltColumns = $(`input[name='show-ref-alt']`).prop("checked") ? "1" : "0";
         const leftAlign = $(`input[name='left-align']`).prop("checked");
-        console.log('leftAlign', leftAlign);
         updateVisualizationCheckboxes(false, genomeVersion)
 
         //start processing submit
