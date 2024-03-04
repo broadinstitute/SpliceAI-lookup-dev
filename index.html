@@ -229,7 +229,7 @@
                                                 <input id="max-distance-input" type="text" value="500" style="padding:7px 10px">
                                             </div>
                                             <i class="question circle outline icon" data-position="right center"
-                                               data-content="For each variant, SpliceAI looks within a window (+/- 500bp by default) to see how the variant affects the probabilities of different positions being splice acceptors or donors. The distance specified here controls the size of this window. The maximum allowed value is 10,000bp."></i>
+                                               data-content="For each variant, SpliceAI looks within a window (+/- 500bp by default) to see how the variant affects the probabilities of different positions being splice acceptors or donors. The distance specified here controls the size of this window. The maximum allowed value is 5,000bp."></i>
 
                                             <div class="ui checkbox form-checkbox"><input type="checkbox" name="mask"><label>mask</label></div>
                                             <i style="margin-left:10px" class="question circle outline icon" data-position="right center"
@@ -238,7 +238,7 @@
                                             <div class="ui checkbox form-checkbox"><input type="checkbox" name="show-ref-alt"><label>REF & ALT scores</label></div>
                                             <i style="margin-left:10px" class="question circle outline icon" data-position="right center"
                                                data-content="Selecting this checkbox will add two extra columns to the results. These will contain the raw SpliceAI and Pangolin predictions for the reference haplotype and the alternate haplotype. The delta scores represent the difference between these reference and alternate scores."></i>
-                                            <div class="ui checkbox form-checkbox"><input type="checkbox" name="left-align-indels"><label>left-align</label></div>
+                                            <div class="ui checkbox form-checkbox"><input type="checkbox" name="left-align" checked><label>left-align</label></div>
                                             <i id="left-align-question-mark" style="margin-left:10px" class="question circle outline icon" data-position="right center"></i>
                                         </div>
                                     </div>
@@ -549,13 +549,14 @@
         $("#error-box").show()
     }
 
-    const normalizeVariant = async (variant, genomeVersion) => {
+    const normalizeVariant = async (variant, genomeVersion, leftAlign) => {
         /* Convert the given variant to a standardized "{chrom}-{pos}-{ref}-{alt}" string using a regular expression, or
          * if that fails, assume the variant is in HGVS notation and try using the Ensembl hgvs API to convert it.
          *
          * Args:
          *  variant (string): user input text
          *  genomeVersion (string): "37" or "38"
+         *  leftAlign (bool): whether to left-align the variant
          *
          * Return:
          *  string: the input variant reformatted as a "{chrom}-{pos}-{ref}-{alt}" string
@@ -617,7 +618,7 @@
             alt = matchedRegExp[5].toUpperCase()
         }
 
-        if (ref.length == alt.length) {
+        if (!leftAlign || ref.length == alt.length) {
             return `${chrom}-${pos}-${ref}-${alt}`
         }
 
@@ -745,7 +746,9 @@
                 resultRowClasses.push("non-coding-transcript")
             }
 
-            const normalizedVariantDiv = variant.match(VARIANT_RE) && variant.toUpperCase().indexOf(normalizedVariant.toUpperCase()) >= 0 ? "" :
+            const match1 = variant.match(VARIANT_RE)
+            const match2 = normalizedVariant.match(VARIANT_RE)
+            const normalizedVariantDiv = (match1[2] == match2[2] && match1[3] == match2[3] && match1[4] == match2[4] && match1[5] == match2[5]) ? "" :
                 `<br class="only-large-screen"/><div style="margin-left:5px;margin-right:10px; display: inline-block; color:#333333"><i>⇒ ${chrom}:${pos} ${ref}&gt;${alt}</i></div><br class="only-large-screen"/>`
 
             $(`#${tool.toLowerCase()}-header`).nextAll().remove()
@@ -1211,7 +1214,8 @@
         const maxDistance = $("#max-distance-input").val().trim()
         const mask = $(`input[name='mask']`).prop("checked") ? "1" : "0";
         const showRefAltColumns = $(`input[name='show-ref-alt']`).prop("checked") ? "1" : "0";
-
+        const leftAlign = $(`input[name='left-align']`).prop("checked");
+        console.log('leftAlign', leftAlign);
         updateVisualizationCheckboxes(false, genomeVersion)
 
         //start processing submit
@@ -1224,7 +1228,7 @@
 
         // make API calls
         try {
-            const normalizedVariant = await normalizeVariant(variant, genomeVersion)
+            const normalizedVariant = await normalizeVariant(variant, genomeVersion, leftAlign)
 
             //let [spliceaiResponseJson, pangolinResponseJson, variantAnnotationsJson] = await Promise.all([
             let [spliceaiResponseJson, pangolinResponseJson] = await Promise.all([
