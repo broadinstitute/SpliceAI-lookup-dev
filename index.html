@@ -973,7 +973,8 @@
         const ref = variantTokens[2]
         const alt = variantTokens[3]
         genomeVersion='37'
-        const primateAI_url = `https://storage.cloud.google.com/spliceai-lookup-reference-data/PrimateAI_3D.hg${genomeVersion == '38' ? '38' : '19'}.txt.gz`
+
+        const primateAI_url = `https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg${genomeVersion == '38' ? '38' : '19'}.txt.gz`
 
         ;(async () => {
         const { TabixIndexedFile } = window.gmodTABIX
