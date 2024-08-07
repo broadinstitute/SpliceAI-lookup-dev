@@ -972,10 +972,10 @@
         const pos = parseInt(variantTokens[1])
         const ref = variantTokens[2]
         const alt = variantTokens[3]
-        genomeVersion='37'
+        genomeVersion='38'
 
         const primateAI_url = `https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg${genomeVersion == '38' ? '38' : '19'}.txt.gz`
-
+		 
         ;(async () => {
         const { TabixIndexedFile } = window.gmodTABIX
 
@@ -987,7 +987,7 @@
         await tbiIndexed.getLines('chr1', 451110, 451115, line =>
           lines.push(line),
         )
-        console.log(lines.join('\n'))
+        console.log("#### lines:", lines.join('\n'))
       })()
 
         console.log("## create FeatureFileReader", url)
