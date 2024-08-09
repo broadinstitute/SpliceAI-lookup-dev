@@ -1034,7 +1034,7 @@
             }
         }
         const helpTextForPredictorScores = {
-            "PrimateAI": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI</a> scores are shown in <br />in <b style='color:#FF0000'>red</b> for scores ≥ ${primateAiThreshold1}<br /><b style='color:#FFCB1F'>yellow</b> for scores ≥ ${primateAiThreshold2}<br /><b style='color:#888888'>gray</b> for scores ≥ ${primateAiThreshold3}<br /><b style='color:#1fb839'>green</b> for lower scores<br />taking thresholds from [<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9748256/' target='_blank'>Pejaver 2022</a>]`,
+            "PrimateAI": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI</a> scores are shown in <br />in <b style='color:#FF0000'>red</b> for scores ≥ ${primateAiThreshold1}<br /><b style='color:#FFCB1F'>yellow</b> for scores ≥ ${primateAiThreshold2}<br /><b style='color:#888888'>gray</b> for scores ≥ ${primateAiThreshold3}<br /><b style='color:#1fb839'>green</b> for lower scores.<br />These thresholds are based on [<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9748256/' target='_blank'>Pejaver 2022</a>].`,
         }
 
         const colorMapForPredictorScores = {
@@ -1050,7 +1050,7 @@
             </td>`
         if (otherPredictorScores.length == 0) {
             tableRows.push(`<tr>${firstColumn}
-                <td style="vertical-align: top; white-space: nowrap" colspan="2">No other scores are available for this variant</td>
+                <td style="vertical-align: top; white-space: nowrap" colspan="2">No scores are available for this variant</td>
             </tr>`)
         } else {
             for (const otherPredictor of otherPredictorScores) {
