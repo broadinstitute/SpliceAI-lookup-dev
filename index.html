@@ -1001,9 +1001,11 @@
                 return
             }
             const score = parseFloat(fields[8])
+            const percentile = parseFloat(fields[9])
             otherPredictorScores.push({
                 'name': 'PrimateAI',
                 'score': score,
+                'percentile': percentile,
             })
         },)
 
@@ -1048,7 +1050,7 @@
         if (otherPredictorScores.length == 0) {
             tableRows.push(`<tr>${firstColumn}
                 <td style="vertical-align: top; white-space: nowrap">PrimateAI</td>
-                <td style="vertical-align: top; white-space: nowrap">only for missense variants</td>
+                <td style="vertical-align: top; white-space: nowrap">only available for missense variants</td>
             </tr>`)
         } else {
             for (const otherPredictor of otherPredictorScores) {
@@ -1058,7 +1060,7 @@
                         ${otherPredictor.name}
                     </td>
                     <td style="vertical-align: top; white-space: nowrap; background-color: ${colorMapForPredictorScores[otherPredictor.name](otherPredictor.score)}">
-                        ${otherPredictor.score.toFixed(2)} &nbsp;
+                        ${otherPredictor.score.toFixed(2)} &nbsp; &nbsp; (percentile: ${otherPredictor.percentile.toFixed(2)})
                         <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>
                     </td>
                     </tr>`
