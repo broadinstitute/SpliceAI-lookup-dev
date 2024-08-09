@@ -1043,7 +1043,7 @@
 
         $(`#other-predictors-header`).nextAll().remove()
         const firstColumn = `
-            <td style="vertical-align: top" rowspan="0">
+            <td class="nine wide column" style="vertical-align: top" rowspan="0">
                 <div style="margin-right:10px; display: inline-block">${variant}</div><br class="only-large-screen"/>
                 ${normalizedVariantDiv}
             </td>`
@@ -1056,10 +1056,10 @@
             for (const otherPredictor of otherPredictorScores) {
                 let row = `<tr>
                     ${firstColumn}
-                    <td style="vertical-align: top; white-space: nowrap">
+                    <td class="four wide column" style="vertical-align: top; white-space: nowrap">
                         ${otherPredictor.name}
                     </td>
-                    <td style="vertical-align: top; white-space: nowrap; background-color: ${colorMapForPredictorScores[otherPredictor.name](otherPredictor.score)}">
+                    <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${colorMapForPredictorScores[otherPredictor.name](otherPredictor.score)}">
                         ${otherPredictor.score.toFixed(2)} &nbsp; &nbsp; (percentile: ${otherPredictor.percentile.toFixed(2)})
                         <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>
                     </td>
