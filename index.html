@@ -262,8 +262,9 @@
                 <div>
                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues" target="_blank">SpliceAI-lookup/issues</a>: issues or feature requests for this website<br />
                     <br/>
-		    SpliceAI, PrimateAI-3D, and PromoterAI were developed by Illumina and are provided here with permission.<br />
-		    <br />
+		            SpliceAI, PrimateAI-3D, and PromoterAI were developed by Illumina and are provided here with permission.<br />
+		            <br />
+
                     <b>June 20, 2024</b><br />
                     - fixed SpliceAI visualizations to clarify positions of predicted splicing changes. See <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/70" target="_blank">issue #70</a> for details. <br />
                     <br />
@@ -364,10 +365,10 @@
                                 </div>
                             </th>
                             <th class="table-header">&#916;&nbsp; type</th>
-                            <th class="table-header" style="white-space: nowrap">&#916;&nbsp; score<i class='question circle outline icon'
-                                                                                 data-content="Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). In the SpliceAI paper, a detailed characterization is provided for 0.2 (high recall), 0.5 (recommended), and 0.8 (high precision) cutoffs. Consequently, scores of 0.2 or higher appear in green, 0.5 or higher appear in yellow, and 0.8 or higher appear in red."></i>
+                            <th class="table-header" style="white-space: nowrap">&#916;&nbsp; score &nbsp; <i class='question circle outline icon'
+                                                                                 data-html="Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). In the SpliceAI paper, a detailed characterization is provided for 0.2 (high recall), 0.5 (recommended), and 0.8 (high precision) cutoffs. Consequently, scores of 0.2 or higher appear in <b style='color:#1fb839'>green</b>, 0.5 or higher appear in <b style='color:#FFCB1F'>yellow</b>, and 0.8 or higher appear in <b style='color:#FF0000'>red</b>."></i>
                             </th>
-                            <th class="table-header" style="white-space: nowrap">position<i class='question circle outline icon'
+                            <th class="table-header" style="white-space: nowrap">position &nbsp; <i class='question circle outline icon'
                                                                                 data-content="For each variant, SpliceAI looks within a window (+/- 500bp by default) to see how the variant affects the probabily of different positions serving as splice acceptors or donors. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are to the left of the variant in genomic coords, regardless of transcript strand."></i>
                             </th>
                             <th class="table-header ref-score-column" style="white-space: nowrap">
@@ -409,10 +410,10 @@
                                 <th class="table-header">Variant</th>
                                 <th class="table-header">Gene</th>
                                 <th class="table-header">&#916;&nbsp; type</th>
-                                <th class="table-header" style="white-space: nowrap">&#916;&nbsp; score<i class='question circle outline icon'
-                                                                                     data-content="Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). Pangolin does not recommend specific score thresholds; however, here scores of 0.2 or higher appear in green, 0.5 or higher appear in yellow, and 0.8 or higher appear in red."></i>
+                                <th class="table-header" style="white-space: nowrap">&#916;&nbsp; score &nbsp; <i class='question circle outline icon'
+                                                                                     data-html="Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). Pangolin does not recommend specific score thresholds; however, here scores of 0.2 or higher appear in <b style='color:#1fb839'>green</b>, 0.5 or higher appear in <b style='color:#FFCB1F'>yellow</b>, and 0.8 or higher appear in <b style='color:#FF0000'>red</b>."></i>
                                 </th>
-                                <th class="table-header" style="white-space: nowrap">position<i class='question circle outline icon'
+                                <th class="table-header" style="white-space: nowrap">position &nbsp; <i class='question circle outline icon'
                                                                                     data-content="For each variant, Pangolin looks within a window (+/- 500bp by default) to see how the variant affects the probability of splicing occuring at different positions. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are upstream (5&#039;) of the variant, and positive are downstream (3&#039;) of the variant."></i>
                                 </th>
                                 <th class="table-header ref-score-column" style="white-space: nowrap">
@@ -424,14 +425,14 @@
                             </tr>
                         </thead>
                     </table>
-                    <table id="other-predictors-table" class="ui stackable table" style="max-width: 500px">
+                    <table id="other-predictors-table" class="ui stackable table">
                         <thead id="other-predictors-header">
                             <tr>
                                 <th style="background-color:white" colspan="3">Other in-silico predictors:</th>
                             </tr>
                             <tr>
                                 <th class="table-header">Variant</th>
-                                <th class="table-header">Predictor</th>
+                                <th class="table-header">Method</th>
                                 <th class="table-header">Score</th>
                             </tr>
                         </thead>
@@ -570,6 +571,18 @@
             return ""
         }
         return `style='background-color:${color};'`
+    }
+
+    const { TabixIndexedFile } = window.gmodTABIX
+
+    const primateAiUrls = {
+        '37': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg19.txt.gz',
+        '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg38.txt.gz',
+    }
+
+    const primateAiTables = {
+        '37': new TabixIndexedFile({ url: primateAiUrls['37'], tbiUrl: `${primateAiUrls['37']}.tbi` }),
+        '38': new TabixIndexedFile({ url: primateAiUrls['38'], tbiUrl: `${primateAiUrls['38']}.tbi` }),
     }
 
     const getUCSCBrowserUrl = (genomeVersion, chrom, pos) => {
@@ -843,6 +856,15 @@
             "C": "Canonical transcript",
         }
 
+        const noDifferenceDueToNormalization = variant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-") == normalizedVariant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-")
+        const normalizedVariantDiv = noDifferenceDueToNormalization ? "" :
+            `<br class="only-large-screen"/>
+             <div style="margin-left:5px;margin-right:10px; display: inline-block; color:#333333">
+                <i>⇒ ${chrom}:${pos} ${ref}&gt;${alt}</i>
+             </div>
+             <br class="only-large-screen"/>`
+
+
         const transcriptCategories = {}
         const tableRows = []
         for (const scores of apiResponseJson.scores) {
@@ -866,14 +888,6 @@
             } else {
                 resultRowClasses.push("non-coding-transcript")
             }
-
-            const noDifferenceDueToNormalization = variant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-") == normalizedVariant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-")
-            const normalizedVariantDiv = noDifferenceDueToNormalization ? "" :
-                `<br class="only-large-screen"/>
-                 <div style="margin-left:5px;margin-right:10px; display: inline-block; color:#333333">
-                    <i>⇒ ${chrom}:${pos} ${ref}&gt;${alt}</i>
-                 </div>
-                 <br class="only-large-screen"/>`
 
             $(`#${tool.toLowerCase()}-header`).nextAll().remove()
             let row = `<tr class="${resultRowClasses.join(' ')}">
@@ -968,29 +982,31 @@
         /* Generate the results table to show either the SpliceAI or Pangolin scores */
 
         const variantTokens = (normalizedVariant || "---").split("-")
-        const chrom = variantTokens[0]
+        const chrom = `chr${variantTokens[0].replace("chr", "")}`
         const pos = parseInt(variantTokens[1])
         const ref = variantTokens[2]
         const alt = variantTokens[3]
-        genomeVersion='38'
 
-        const primateAI_url = `https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg${genomeVersion == '38' ? '38' : '19'}.txt.gz`
-		 
-        ;(async () => {
-        const { TabixIndexedFile } = window.gmodTABIX
+        const otherPredictorScores = []
+        //'chr1', 451110, 451115
+        console.log("Querying", chrom, pos, ref, alt, "from", primateAiUrls[genomeVersion])
+        await primateAiTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
+            const fields = line.split('\t')
+            const lineChrom = fields[0]
+            const linePos = parseInt(fields[1])
+            const lineRef = fields[2]
+            const lineAlt = fields[3]
+            console.log(lineChrom, linePos, lineRef, lineAlt, 'vs', chrom, pos, ref, alt)
 
-        const tbiIndexed = new TabixIndexedFile({
-          url: primateAI_url,
-          tbiUrl: `${primateAI_url}.tbi`,
-        })
-        const lines = []
-        await tbiIndexed.getLines('chr1', 451110, 451115, line =>
-          lines.push(line),
-        )
-        console.log("#### lines:", lines.join('\n'))
-      })()
-
-        console.log("## create FeatureFileReader", url)
+            if (linePos != pos || lineRef != ref || lineAlt != alt) {
+                return
+            }
+            const score = parseFloat(fields[9])
+            otherPredictorScores.push({
+                'name': 'PrimateAI',
+                'score': 0.49,
+            })
+        },)
 
         const tableRows = []
         const noDifferenceDueToNormalization = variant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-") == normalizedVariant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-")
@@ -1001,25 +1017,57 @@
              </div>
              <br class="only-large-screen"/>`
 
-        let row = `<tr>
-            <td style="vertical-align: top">
+        const primateAiThreshold1 = 0.867
+        const primateAiThreshold2 = 0.79
+        const primateAiThreshold3 = 0.484
+
+        const mapPrimateAiScoreToColor = (score) => {
+            //cut-offs: 0.484, 0.79, 0.867
+            if (score >= primateAiThreshold1) {
+                return "#fccfb8"
+            } else if (score >= primateAiThreshold2) {
+                return "#fff19d"
+            } else if (score >= primateAiThreshold3) {
+                return "#CCCCCC"
+            } else {
+                return "#cdffd7"
+            }
+        }
+        const helpTextForPredictorScores = {
+            "PrimateAI": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI</a> scores are shown in <br />in <b style='color:#FF0000'>red</b> for scores ≥ ${primateAiThreshold1}<br /><b style='color:#FFCB1F'>yellow</b> for scores ≥ ${primateAiThreshold2}<br /><b style='color:#888888'>gray</b> for scores ≥ ${primateAiThreshold3}<br /><b style='color:#1fb839'>green</b> for lower scores<br />taking thresholds from [<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9748256/' target='_blank'>Pejaver 2022</a>]`,
+        }
+
+        const colorMapForPredictorScores = {
+            "PrimateAI": mapPrimateAiScoreToColor,
+        }
+
+        $(`#other-predictors-header`).nextAll().remove()
+        const firstColumn = `
+            <td style="vertical-align: top" rowspan="0">
                 <div style="margin-right:10px; display: inline-block">${variant}</div><br class="only-large-screen"/>
                 ${normalizedVariantDiv}
                 <br class="only-large-screen"/>
-            </td>
-            <td rowspan="${subRowCount}" style="vertical-align: top">
-                column 2
-                <div style="margin-right:10px; display: inline-block"></div><br />
-                <div class="small-link">score type</div>
-                <div class="small-link">score</div>
-                <div class="small-link">strand</div>
-                </div><br class="only-large-screen" />
-                <br class="only-large-screen" />
-            </td></tr>`
+            </td>`
+        if (otherPredictorScores.length == 0) {
+            tableRows.push(`<tr>${firstColumn}
+                <td style="vertical-align: top; white-space: nowrap" colspan="2">No other scores are available for this variant</td>
+            </tr>`)
+        } else {
+            for (const otherPredictor of otherPredictorScores) {
+                let row = `<tr>
+                    ${firstColumn}
+                    <td style="vertical-align: top; white-space: nowrap">
+                        ${otherPredictor.name}
+                    </td>
+                    <td style="vertical-align: top; white-space: nowrap; background-color: ${colorMapForPredictorScores[otherPredictor.name](otherPredictor.score)}">
+                        ${otherPredictor.score.toFixed(2)} &nbsp;
+                        <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>
+                    </td>
+                    </tr>`
 
-            tableRows.push(row)
-
-        console.log("Adding rows to other predictors table")
+                    tableRows.push(row)
+            }
+        }
         $(`#other-predictors-header`).after(tableRows.join(""))
 
     }
@@ -1416,8 +1464,6 @@
 
         $(".ref-score-column, .alt-score-column").toggle(showRefAltColumns == "1")
 
-
-        console.log("#### making api calls")
         // make API calls
         try {
             const normalizedVariantAndConsequence = await normalizeVariant(variant, genomeVersion)
@@ -1433,6 +1479,10 @@
             ].map(p => p.catch(e => ({'error': e.message}))))  // if an error is thrown, return {'error': e} instead of the JSON response
 
             $("#response-box").show()
+
+            $(".question").popup({"on": "click"})
+            $(".question").css("cursor", "pointer")
+            $(".question").css("color", "#666666")
 
             $(".exclamation").popup({hoverable: true, html: $(".exclamation").attr("data-content")})
 
