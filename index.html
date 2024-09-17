@@ -1001,7 +1001,7 @@
             const percentile = parseFloat(fields[5])
             const genePercentilethreshold = parseFloat(fields[6])
             otherPredictorScores.push({
-                'name': 'PrimateAI',
+                'name': 'PrimateAI-3D',
                 'score': score,
                 'percentile': percentile,
                 'genePercentileThreshold': genePercentilethreshold,
@@ -1031,11 +1031,11 @@
             }
         }
         const helpTextForPredictorScores = {
-            "PrimateAI": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI</a> score ranges:<br /><br /><b style='color:#FF0000'>red</b> = likely deleterious<br /><b style='color:#FFCB1F'>yellow</b> = intermediate<br /><b style='color:#1fb839'>green</b> = likely benign<br /><br />The score ranges are based on gene-specific thresholds provided by the authors of PrimateAI`,
+            "PrimateAI-3D": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> score ranges:<br /><br /><b style='color:#FF0000'>red</b> = likely deleterious<br /><b style='color:#FFCB1F'>yellow</b> = intermediate<br /><b style='color:#1fb839'>green</b> = likely benign<br /><br />The gene-specific thresholds are provided by the authors of PrimateAI-3D and were calibrated on known ClinVar benign and pathogenic missense variants.`,
         }
 
         const colorMapForPredictorScores = {
-            "PrimateAI": mapPrimateAiScoreToColor,
+            "PrimateAI-3D": mapPrimateAiScoreToColor,
         }
 
         $(`#other-predictors-header`).nextAll().remove()
@@ -1046,7 +1046,7 @@
             </td>`
         if (otherPredictorScores.length == 0) {
             tableRows.push(`<tr>${firstColumn}
-                <td style="vertical-align: top; white-space: nowrap">PrimateAI</td>
+                <td style="vertical-align: top; white-space: nowrap">PrimateAI-3D</td>
                 <td style="vertical-align: top; white-space: nowrap">only available for missense variants</td>
             </tr>`)
         } else {
@@ -1057,7 +1057,7 @@
                         ${otherPredictor.name}
                     </td>
                     <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${colorMapForPredictorScores[otherPredictor.name](otherPredictor)}">
-                        ${otherPredictor.score.toFixed(2)} &nbsp; (percentile: ${otherPredictor.percentile.toFixed(2)}) &nbsp;
+                        ${otherPredictor.percentile.toFixed(2)} &nbsp; (gene-specific threshold: ${otherPredictor.genePercentileThreshold.toFixed(2)}) &nbsp;
                         <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>
                     </td>
                     </tr>`
