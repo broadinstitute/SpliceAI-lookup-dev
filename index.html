@@ -153,10 +153,9 @@
                                 <a id="more-details1-button" href="#" style="float:right; padding-right:7px" onclick="$('#more-details1').show();$('#more-details1-button').hide();">[more details]</a>
                                 <div id="more-details1" style="display:none">
                                   <br />
-                                    SpliceAI, PrimateAI-3D, and PromoterAI were developed by Illumina and are provided here with permission.
-                                    This web site is maintained by the <a href="https://the-tgg.org/" target="_blank">TGG</a> at the <a href="https://www.broadinstitute.org/" target="_blank">Broad Institute</a>.
-                                    It works by running the SpliceAI and Pangolin splicing prediction models directly on user-specified variants. It also retrieves other in-silico prediction scores such as PrimateAI-3D and
-				                    PromoterAI from precomputed tables shared by the method authors.<br />
+                                    <a href="https://github.com/illumina/SpliceAI" target="_blank">SpliceAI</a> is a copyrighted work by Illumina and is provided under GPLv3 and CC BY NC 4.0 licenses for academic and non-commercial use.
+				                    This web service is maintained by the <a href="https://the-tgg.org/" target="_blank">TGG</a> at the <a href="https://www.broadinstitute.org/" target="_blank">Broad Institute</a>.
+                                    It runs the SpliceAI and Pangolin splicing prediction models on user-specified variants and then displays the scores.<br />
                                     <br />
                                     For more information about SpliceAI, see <a href="https://doi.org/10.1016/j.cell.2018.12.015" target="_blank">Jaganathan et al, Cell 2019</a>
                                     and this <a href="https://www.youtube.com/watch?v=oJvhj-tYbBI" target="_blank">recorded talk</a> by Kishore Jaganathan.<br />
@@ -574,8 +573,8 @@
     const { TabixIndexedFile } = window.gmodTABIX
 
     const primateAiUrls = {
-        '37': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg19.txt.gz',
-        '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg38.txt.gz',
+        '37': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg19.with_gene_thresholds.txt.gz',
+        '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg38.with_gene_thresholds.txt.gz',
     }
 
     const primateAiTables = {
@@ -998,12 +997,14 @@
             if (linePos != pos || lineRef != ref || lineAlt != alt) {
                 return
             }
-            const score = parseFloat(fields[8])
-            const percentile = parseFloat(fields[9])
+            const score = parseFloat(fields[4])
+            const percentile = parseFloat(fields[5])
+            const genePercentilethreshold = parseFloat(fields[6])
             otherPredictorScores.push({
                 'name': 'PrimateAI',
                 'score': score,
                 'percentile': percentile,
+                'genePercentileThreshold': genePercentilethreshold,
             })
         },)
 
@@ -1020,19 +1021,17 @@
         const primateAiThreshold2 = 0.79
         const primateAiThreshold3 = 0.484
 
-        const mapPrimateAiScoreToColor = (score) => {
-            if (score >= primateAiThreshold1) {
+        const mapPrimateAiScoreToColor = (record) => {
+            if (record.score >= record.genePercentileThreshold + 0.1) {
                 return "#fccfb8"
-            } else if (score >= primateAiThreshold2) {
+            } else if (record.score >= record.genePercentileThreshold - 0.1) {
                 return "#fff19d"
-            } else if (score >= primateAiThreshold3) {
-                return "#CCCCCC"
             } else {
                 return "#cdffd7"
             }
         }
         const helpTextForPredictorScores = {
-            "PrimateAI": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI</a> scores are shown in <br /><b style='color:#FF0000'>red</b> for scores ≥ ${primateAiThreshold1}<br /><b style='color:#FFCB1F'>yellow</b> for scores ≥ ${primateAiThreshold2}<br /><b style='color:#888888'>gray</b> for scores ≥ ${primateAiThreshold3}<br /><b style='color:#1fb839'>green</b> for lower scores.<br />These thresholds are based on [<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9748256/' target='_blank'>Pejaver 2022</a>].`,
+            "PrimateAI": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI</a> score ranges:<br /><br /><b style='color:#FF0000'>red</b> = likely deleterious<br /><b style='color:#FFCB1F'>yellow</b> = intermediate<br /><b style='color:#1fb839'>green</b> = likely benign<br /><br />The score ranges are based on gene-specific thresholds provided by the authors of PrimateAI`,
         }
 
         const colorMapForPredictorScores = {
@@ -1057,8 +1056,8 @@
                     <td class="four wide column" style="vertical-align: top; white-space: nowrap">
                         ${otherPredictor.name}
                     </td>
-                    <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${colorMapForPredictorScores[otherPredictor.name](otherPredictor.score)}">
-                        ${otherPredictor.score.toFixed(2)} &nbsp; &nbsp; (percentile: ${otherPredictor.percentile.toFixed(2)})
+                    <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${colorMapForPredictorScores[otherPredictor.name](otherPredictor)}">
+                        ${otherPredictor.score.toFixed(2)} &nbsp; (percentile: ${otherPredictor.percentile.toFixed(2)}) &nbsp;
                         <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>
                     </td>
                     </tr>`
