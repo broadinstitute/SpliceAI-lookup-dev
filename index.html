@@ -1022,16 +1022,16 @@
         const primateAiThreshold3 = 0.484
 
         const mapPrimateAiScoreToColor = (record) => {
-            if (record.score >= record.genePercentileThreshold + 0.1) {
+            if (record.score >= record.genePercentileThreshold) { // + 0.1) {
                 return "#fccfb8"
-            } else if (record.score >= record.genePercentileThreshold - 0.1) {
-                return "#fff19d"
-            } else {
-                return "#cdffd7"
+            //} else if (record.score >= record.genePercentileThreshold - 0.1) {
+            //    return "#fff19d"
+            //} else {
+                return "#ffffff"
             }
         }
         const helpTextForPredictorScores = {
-            "PrimateAI-3D": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> score ranges:<br /><br /><b style='color:#FF0000'>red</b> = likely deleterious<br /><b style='color:#FFCB1F'>yellow</b> = intermediate<br /><b style='color:#1fb839'>green</b> = likely benign<br /><br />The gene-specific thresholds are provided by the authors of PrimateAI-3D and were calibrated on known ClinVar benign and pathogenic missense variants.`,
+            "PrimateAI-3D": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Scores above this threshold are annotated as likely deleterious.`,
         }
 
         const colorMapForPredictorScores = {
