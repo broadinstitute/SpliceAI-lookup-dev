@@ -572,14 +572,14 @@
 
     const { TabixIndexedFile } = window.gmodTABIX
 
-    const primateAiUrls = {
+    const lookupTableUrls = {
         '37': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg19.with_gene_thresholds.txt.gz',
-        '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg38.with_gene_thresholds.txt.gz',
+        '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_and_PromoterAI_scores.hg38.tsv.gz',
     }
 
-    const primateAiTables = {
-        '37': new TabixIndexedFile({ url: primateAiUrls['37'], tbiUrl: `${primateAiUrls['37']}.tbi` }),
-        '38': new TabixIndexedFile({ url: primateAiUrls['38'], tbiUrl: `${primateAiUrls['38']}.tbi` }),
+    const lookupTables = {
+        '37': new TabixIndexedFile({ url: lookupTableUrls['37'], tbiUrl: `${lookupTableUrls['37']}.tbi` }),
+        '38': new TabixIndexedFile({ url: lookupTableUrls['38'], tbiUrl: `${lookupTableUrls['38']}.tbi` }),
     }
 
     const getUCSCBrowserUrl = (genomeVersion, chrom, pos) => {
@@ -977,6 +977,7 @@
 
     const generateOtherPredictorsTable = async (normalizedVariant, variantConsequence, variant, genomeVersion) => {
         /* Generate the results table to show either the SpliceAI or Pangolin scores */
+        console.log(`Generating other scores table for ${normalizedVariant} from ${lookupTableUrls[genomeVersion]}`)
 
         const variantTokens = (normalizedVariant || "---").split("-")
         const chrom = `chr${variantTokens[0].replace("chr", "")}`
@@ -984,28 +985,37 @@
         const ref = variantTokens[2]
         const alt = variantTokens[3]
 
-        //console.log("Querying", chrom, pos, ref, alt, "from", primateAiUrls[genomeVersion])
         const otherPredictorScores = []
-        await primateAiTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
+        await lookupTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
+            //console.log("Got line:", line)
             const fields = line.split('\t')
             const lineChrom = fields[0]
             const linePos = parseInt(fields[1])
             const lineRef = fields[2]
             const lineAlt = fields[3]
-            console.log(lineChrom, linePos, lineRef, lineAlt, 'vs', chrom, pos, ref, alt)
+            //console.log("`Got scores`:", fields)
 
             if (linePos != pos || lineRef != ref || lineAlt != alt) {
                 return
             }
-            const score = parseFloat(fields[4])
-            const percentile = parseFloat(fields[5])
-            const genePercentilethreshold = parseFloat(fields[6])
-            otherPredictorScores.push({
-                'name': 'PrimateAI-3D',
-                'score': score,
-                'percentile': percentile,
-                'genePercentileThreshold': genePercentilethreshold,
-            })
+            const percentile = parseFloat(fields[4])
+            const genePercentilethreshold = parseFloat(fields[5])
+            //console.log("PrimateAI-3D", percentile, genePercentilethreshold)
+            if (!isNaN(percentile)) {
+                otherPredictorScores.push({
+                    'name': 'PrimateAI-3D',
+                    'percentile': percentile,
+                    'genePercentileThreshold': genePercentilethreshold,
+                })
+            }
+            const promoterAiScore = parseFloat(fields[6])
+            //console.log("PromoterAI", promoterAiScore)
+            if (!isNaN(promoterAiScore)) {
+                otherPredictorScores.push({
+                    'name': 'PromoterAI',
+                    'score': promoterAiScore,
+                })
+            }
         },)
 
         const tableRows = []
@@ -1017,30 +1027,36 @@
              </div>
              <br class="only-large-screen"/>`
 
-        const primateAiThreshold1 = 0.867
-        const primateAiThreshold2 = 0.79
-        const primateAiThreshold3 = 0.484
-
-        const mapPrimateAiScoreToColor = (record) => {
-            if (record.score >= record.genePercentileThreshold) { // + 0.1) {
-                return "#fccfb8"
-            //} else if (record.score >= record.genePercentileThreshold - 0.1) {
-            //    return "#fff19d"
-            //} else {
-                return "#ffffff"
-            }
-        }
         const helpTextForPredictorScores = {
-            "PrimateAI-3D": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Scores above this threshold are annotated as likely deleterious.`,
+            "PrimateAI-3D": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are annotated as likely deleterious.`,
+            "PromoterAI": `PromoterAI scores range from -1 to 1 with 0 meaning no activity, negative values are under-expression and positive values are over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
         }
 
         const colorMapForPredictorScores = {
-            "PrimateAI-3D": mapPrimateAiScoreToColor,
+            "PrimateAI-3D": (record) => {
+                if (record.percentile >= record.genePercentileThreshold) { // + 0.1) {
+                    return "#fccfb8"
+                //} else if (record.percentile >= record.genePercentileThreshold - 0.1) {
+                //    return "#fff19d"
+                //} else {
+                    return "#ffffff"
+                }
+            },
+            "PromoterAI": (record) => {
+                const absScore = Math.abs(record.score)
+                if (absScore >= 0.5) {
+                    return "#fccfb8"
+                } else if (absScore >= 0.1) {
+                    return "#fff19d"
+                } else {
+                    return "#ffffff"
+                }
+            },
         }
 
         $(`#other-predictors-header`).nextAll().remove()
-        const firstColumn = `
-            <td class="nine wide column" style="vertical-align: top" rowspan="0">
+        let firstColumn = `
+            <td class="nine wide column" style="vertical-align: top">
                 <div style="margin-right:10px; display: inline-block">${variant}</div><br class="only-large-screen"/>
                 ${normalizedVariantDiv}
             </td>`
@@ -1051,7 +1067,20 @@
             </tr>`)
         } else {
             for (const otherPredictor of otherPredictorScores) {
-                let row = `<tr>
+                let row
+                if (otherPredictor.name == "PromoterAI") {
+                    row = `<tr>
+                    ${firstColumn}
+                    <td class="four wide column" style="vertical-align: top; white-space: nowrap">
+                        ${otherPredictor.name}
+                    </td>
+                    <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${colorMapForPredictorScores[otherPredictor.name](otherPredictor)}">
+                        ${otherPredictor.score.toFixed(3)} &nbsp;
+                        <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>
+                    </td>
+                    </tr>`
+                } else if (otherPredictor.name == "PrimateAI-3D") {
+                    row = `<tr>
                     ${firstColumn}
                     <td class="four wide column" style="vertical-align: top; white-space: nowrap">
                         ${otherPredictor.name}
@@ -1061,8 +1090,9 @@
                         <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>
                     </td>
                     </tr>`
-
-                    tableRows.push(row)
+                }
+                tableRows.push(row)
+                firstColumn = "<td></td>"
             }
         }
         $(`#other-predictors-header`).after(tableRows.join(""))
