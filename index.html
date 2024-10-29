@@ -9,7 +9,7 @@
         const baseApiUrl = {
             //"pangolin-37": "https://pangolin-xwkwwwxdwq-uc.a.run.app",
             //"pangolin-38": "https://pangolin-xwkwwwxdwq-uc.a.run.app",
-            "normalize": "https://liftover-xwkwwwxdwq-uc.a.run.app",
+            "normalize":   "https://liftover-xwkwwwxdwq-uc.a.run.app",
             "pangolin-37": "https://pangolin-37-xwkwwwxdwq-uc.a.run.app",
             "pangolin-38": "https://pangolin-38-xwkwwwxdwq-uc.a.run.app",
             "spliceai-37": "https://spliceai-37-xwkwwwxdwq-uc.a.run.app",
@@ -218,13 +218,24 @@
                                 <input id="search-box" type="text" style="width: 100%; padding: 7px 10px" placeholder="Enter a variant...">
                             </div>
                             <div class="field" style="padding-right:10px; white-space:nowrap">
-                                <span style="display: inline-block; white-space: nowrap; padding-bottom:10px;"><b>Genome version:</b></span>
-                                <div class="ui radio checkbox" style="padding-left:15px; padding-bottom:10px">
-                                    <input type="radio" name="hg" value="37"/><label>hg19</label>
-                                </div>
-                                <div class="ui radio checkbox" style="padding-left:15px; padding-bottom:10px">
-                                    <input type="radio" name="hg" value="38" checked/><label>hg38</label>
-                                </div>
+                                <span style="display: inline-block; white-space: nowrap; padding-right:35px;">
+                                    <span style="display: inline-block; white-space: nowrap; padding-bottom:10px;"><b>Genome version:</b></span>
+                                    <div class="ui radio checkbox" style="padding-left:15px; padding-bottom:10px">
+                                        <input type="radio" name="hg" value="37"/><label>hg19</label>
+                                    </div>
+                                    <div class="ui radio checkbox" style="padding-left:15px; padding-bottom:10px">
+                                        <input type="radio" name="hg" value="38" checked/><label>hg38</label>
+                                    </div>
+                                </span>
+                                <span style="display: inline-block; white-space: nowrap;">
+                                    <span style="display: inline-block; white-space: nowrap; padding-bottom:10px;"><b>Gencode:</b></span>
+                                    <div class="ui radio checkbox" style="padding-left:15px; padding-bottom:10px">
+                                        <input type="radio" name="gencodeGeneSet" value="basic" checked/><label>basic</label>
+                                    </div>
+                                    <div class="ui radio checkbox" style="padding-left:15px; padding-bottom:10px">
+                                        <input type="radio" name="gencodeGeneSet" value="comprehensive" /><label>comprehensive</label>
+                                    </div>
+                                </span>
                             </div>
                             <div class="ui stackable grid">
                                 <div class="row">
@@ -261,18 +272,22 @@
                 <div>
                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues" target="_blank">SpliceAI-lookup/issues</a>: issues or feature requests for this website<br />
                     <br/>
-
+                    <b>November, 2024</b><br />
+                    - show precomputed scores for <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/" target="_blank">PrimateAI-3D</a>, PromoterAI and other in-silico preditors<br />
+                    - allow selection of <a href="https://genome.ucsc.edu/FAQ/FAQgenes.html#gencode" target="_blank">basic or comprehensive</a> Gencode gene set<br />
+                    - update to Gencode v47 <br />
+                    <br />
                     <b>June 20, 2024</b><br />
                     - fixed SpliceAI visualizations to clarify positions of predicted splicing changes. See <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/70" target="_blank">issue #70</a> for details. <br />
-                    <br />
-                    <b>June 3, 2024</b><br />
-                    - show the input variant's <a href="https://useast.ensembl.org/info/docs/tools/vep/index.html" target="blank">VEP</a> consequence in the results table<br />
-                    - the Gencode gene track is now optional in the visualizations<br />
-                    - updated everything to <a href="https://www.gencodegenes.org/human/releases.html">Gencode v46</a><br/>
                     <br />
                     <a id="more-details3-button" href="#"
                        onclick="$('#more-details3').show();$('#more-details3-button').hide();">[show older updates]</a>
                     <div id="more-details3" style="display:none">
+                        <b>June 3, 2024</b><br />
+                        - show the input variant's <a href="https://useast.ensembl.org/info/docs/tools/vep/index.html" target="blank">VEP</a> consequence in the results table<br />
+                        - the Gencode gene track is now optional in the visualizations<br />
+                        - updated everything to <a href="https://www.gencodegenes.org/human/releases.html">Gencode v46</a><br/>
+                        <br />
                         <b>March 7, 2024</b><br/>
                         - added warning for insertion variants with delta scores ≥ 0.2 and position = 0bp saying that they may be difficult to interpret due to <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/69">issue #67</a>. Thanks to @SophieCandille for the issue report and example variant: <a href="https://spliceailookup.broadinstitute.org/#variant=NM_000179.3%3Ac.261-3_261-2insAGTTG&hg=38&distance=500&mask=0&ra=1" target="_blank">2:47790924 C>CAGTTG</a><br />
                         - moved server to Google Cloud Run to better support higher usage<br />
@@ -722,37 +737,6 @@
         */
     }
 
-
-    /*
-    const generateVariantAnnotationTable = async (normalizedVariant, genomeVersion) => {
-        const matchedRegExp = normalizedVariant.match(VARIANT_RE)
-        if (!matchedRegExp) {
-            console.error(`Unable to parse normalized variant: ${normalizedVariant}`)
-            return {}
-        }
-        // was able to parse the user input using a simple reg-exp
-        const chrom = matchedRegExp[2].toUpperCase()
-        const pos = parseInt(matchedRegExp[3].replace(/,/g, ""))
-        const ref = matchedRegExp[4]
-        const alt = matchedRegExp[5]
-
-        const myVariantApiUrl = `https://myvariant.info/v1/variant/chr${chrom}:g.${pos}${ref}>${alt}${genomeVersion == '38' ? '?assembly=hg38' : ''}`
-
-        let myVariantApiResponse
-        try {
-            myVariantApiResponse = await makeRequest(myVariantApiUrl)
-        } catch(e) {
-            console.error(e)
-            throw Error(`MyVariant API call failed: ${e}`)
-        }
-
-        const myVariantApiResponseJson = await myVariantApiResponse.json()
-        console.log(`MyVariant API response:`, myVariantApiResponseJson)
-
-        return myVariantApiResponseJson
-    }
-    */
-
     const makeRequest = (url) => {
         const method = "GET"
         return new Promise(async (resolve, reject) => {
@@ -801,6 +785,10 @@
         } else {
             return ""
         }
+    }
+
+    const getGnomadDataVersion = (genomeVersion) => {
+        return genomeVersion === "38" ? "gnomad_r4" : "gnomad_r2_1"
     }
 
     const generateSplicingResultsTable = async (normalizedVariant, variantConsequence, tool, variant, genomeVersion, maxDistance, mask, showRefAltScoreColumns) => {
@@ -868,7 +856,7 @@
             const isPangolin = tool.toLowerCase() == "pangolin"
             const subRowCount = isPangolin ? 2 : 4
             const strand = scores['t_strand'] == "-" ? "minus" : "plus"
-            const gnomadVersion = genomeVersion === "38" ? "gnomad_r3" : "gnomad_r2_1"
+            const gnomadVersion = getGnomadDataVersion(genomeVersion)
             const isMainTranscript = scores['t_priority'] != "N" && (scores['t_priority'] != "C" || transcriptCategories["MS"] == undefined)
             const refSeqLink = scores['t_refseq_ids']? `/ <a href="https://www.ncbi.nlm.nih.gov/search/all/?term=${scores['t_refseq_ids'][0]}" target="_blank">${scores['t_refseq_ids'][0]}</a>` : ""
 
@@ -986,37 +974,104 @@
         const alt = variantTokens[3]
 
         const otherPredictorScores = []
-        await lookupTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
-            //console.log("Got line:", line)
-            const fields = line.split('\t')
-            const lineChrom = fields[0]
-            const linePos = parseInt(fields[1])
-            const lineRef = fields[2]
-            const lineAlt = fields[3]
-            //console.log("`Got scores`:", fields)
 
-            if (linePos != pos || lineRef != ref || lineAlt != alt) {
-                return
+        const queryLookupTable = async () => {
+            await lookupTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
+                //console.log("Got line:", line)
+                const fields = line.split('\t')
+                const lineChrom = fields[0]
+                const linePos = parseInt(fields[1])
+                const lineRef = fields[2]
+                const lineAlt = fields[3]
+                //console.log("`Got scores`:", fields)
+
+                if (linePos != pos || lineRef != ref || lineAlt != alt) {
+                    return
+                }
+                const percentile = parseFloat(fields[4])
+                const genePercentilethreshold = parseFloat(fields[5])
+                //console.log("PrimateAI-3D", percentile, genePercentilethreshold)
+                if (!isNaN(percentile)) {
+                    otherPredictorScores.push({
+                        'name': 'primateai3d',
+                        'percentile': percentile,
+                        'genePercentileThreshold': genePercentilethreshold,
+                    })
+                }
+                const promoterAiScore = parseFloat(fields[6])
+                //console.log("PromoterAI", promoterAiScore)
+                if (!isNaN(promoterAiScore)) {
+                    otherPredictorScores.push({
+                        'name': 'promoterai',
+                        'score': promoterAiScore,
+                    })
+                }
+            },)
+        }
+        /*
+           joint {
+                  ac
+                  an
+                homozygote_count
+                hemizygote_count
+                af
+                ac_hom
+                ac_hemi
+         */
+
+        const queryGnomAD = async () => {
+            console.log("Querying gnomAD")
+            query = `{
+              variant(variantId: "${chrom.replace("chr", "")}-${pos}-${ref}-${alt}", dataset: ${getGnomadDataVersion(genomeVersion)}) {
+                in_silico_predictors {
+                  id,
+                  value
+                },
+              }
+            }`
+
+            const response = await fetch("https://gnomad.broadinstitute.org/api", {
+                "method": "POST",
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                "body": JSON.stringify({ query }),
+            })
+
+            if (response.ok) {
+                const responseJson = await response.json()
+                console.log("gnomAD response:", responseJson)
+                if (responseJson && responseJson.data && responseJson.data.variant) {
+                  /*
+                  if (responseJson.data.variant.joint && responseJson.data.variant.joint.ac && responseJson.data.variant.joint.an) {
+                    otherPredictorScores.push({
+                        'name': 'gnomAD',
+                        'score': `AC: ${responseJson.data.variant.joint.ac}, &nbsp; AN: ${responseJson.data.variant.joint.an}`,
+                    })
+                  }
+                  */
+
+                    if (responseJson.data.variant.in_silico_predictors) {
+                      responseJson.data.variant.in_silico_predictors.forEach((predictor) => {
+                          if (predictor.id.startsWith("spliceai") || predictor.id.startsWith("pangolin")) {
+                              return
+                          }
+                          otherPredictorScores.push({
+                              'name': predictor.id,
+                              'score': parseFloat(predictor.value).toFixed(3),
+                          })
+                      })
+                    }
+                }
             }
-            const percentile = parseFloat(fields[4])
-            const genePercentilethreshold = parseFloat(fields[5])
-            //console.log("PrimateAI-3D", percentile, genePercentilethreshold)
-            if (!isNaN(percentile)) {
-                otherPredictorScores.push({
-                    'name': 'PrimateAI-3D',
-                    'percentile': percentile,
-                    'genePercentileThreshold': genePercentilethreshold,
-                })
-            }
-            const promoterAiScore = parseFloat(fields[6])
-            //console.log("PromoterAI", promoterAiScore)
-            if (!isNaN(promoterAiScore)) {
-                otherPredictorScores.push({
-                    'name': 'PromoterAI',
-                    'score': promoterAiScore,
-                })
-            }
-        },)
+        }
+
+
+        console.log("Querying lookup table and gnomAD")
+        await Promise.all([queryLookupTable(), queryGnomAD()]) //.map(p => p.catch(e => ({'error': e.message})))
+
+        console.log("Other predictors scores:", otherPredictorScores)
 
         const tableRows = []
         const noDifferenceDueToNormalization = variant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-") == normalizedVariant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-")
@@ -1028,12 +1083,28 @@
              <br class="only-large-screen"/>`
 
         const helpTextForPredictorScores = {
-            "PrimateAI-3D": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are annotated as likely deleterious.`,
-            "PromoterAI": `PromoterAI scores range from -1 to 1 with 0 meaning no activity, negative values are under-expression and positive values are over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
+            "primateai3d": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are annotated as likely deleterious.`,
+            "promoterai": `PromoterAI scores range from -1 to 1 with 0 meaning no activity, negative values are under-expression and positive values are over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
+            "cadd": "CADD scores",
+            "phylop": "PhyloP scores",
+            "revel": "REVEL scores",
+            "gnomAD": "gnomAD allele counts and allele numbers",
+        }
+
+        const nameMapForPredictorScores = {
+            "primateai3d": "PrimateAI-3D",
+            "promoterai": "PromoterAI",
+            "cadd": "CADD",
+            "revel": "REVEL",
+            "revel_max": "REVEL",
+            "sift_max": "SIFT",
+            "phylop": "PhyloP",
+            "gnomad": "gnomAD",
+            "polyphen_max": "PolyPhen",
         }
 
         const colorMapForPredictorScores = {
-            "PrimateAI-3D": (record) => {
+            "primateai3d": (record) => {
                 if (record.percentile >= record.genePercentileThreshold) { // + 0.1) {
                     return "#fccfb8"
                 //} else if (record.percentile >= record.genePercentileThreshold - 0.1) {
@@ -1042,8 +1113,8 @@
                     return "#ffffff"
                 }
             },
-            "PromoterAI": (record) => {
-                const absScore = Math.abs(record.score)
+            "promoterai": (record) => {
+                const absScore = Math.abs(parseFloat(record.score))
                 if (absScore >= 0.5) {
                     return "#fccfb8"
                 } else if (absScore >= 0.1) {
@@ -1052,47 +1123,87 @@
                     return "#ffffff"
                 }
             },
+            "cadd": (record) => {
+                const absScore = Math.abs(parseFloat(record.score))
+                if (absScore >= 20) {
+                    return "#fccfb8"
+                } else if (absScore >= 10) {
+                    return "#fff19d"
+                } else {
+                    return "#ffffff"
+                }
+            },
+            "revel": (record) => {
+                const absScore = Math.abs(parseFloat(record.score))
+                if (absScore >= 0.5) {
+                    return "#fccfb8"
+                } else if (absScore >= 0.1) {
+                    return "#fff19d"
+                } else {
+                    return "#ffffff"
+                }
+            },
+            "phylop": (record) => {
+                const absScore = Math.abs(parseFloat(record.score))
+                if (absScore >= 2) {
+                    return "#fccfb8"
+                } else if (absScore >= 1) {
+                    return "#fff19d"
+                } else {
+                    return "#ffffff"
+                }
+            },
+
+            "default": (record) => {
+                return "#ffffff"
+            }
         }
 
         $(`#other-predictors-header`).nextAll().remove()
         let firstColumn = `
-            <td class="nine wide column" style="vertical-align: top">
+            <td class="nine wide column" style="vertical-align: top" rowSpan="${otherPredictorScores.length}">
                 <div style="margin-right:10px; display: inline-block">${variant}</div><br class="only-large-screen"/>
                 ${normalizedVariantDiv}
             </td>`
+
         if (otherPredictorScores.length == 0) {
             tableRows.push(`<tr>${firstColumn}
                 <td style="vertical-align: top; white-space: nowrap">PrimateAI-3D</td>
                 <td style="vertical-align: top; white-space: nowrap">only available for missense variants</td>
             </tr>`)
         } else {
+            otherPredictorScores.sort((a, b) => a.name > b.name ? 1 : -1)
             for (const otherPredictor of otherPredictorScores) {
                 let row
-                if (otherPredictor.name == "PromoterAI") {
+                const bgColor = (colorMapForPredictorScores[otherPredictor.name] || colorMapForPredictorScores["default"])(otherPredictor)
+                const predictorName = nameMapForPredictorScores[otherPredictor.name] || otherPredictor.name
+                const helpIcon = helpTextForPredictorScores[otherPredictor.name] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>` : ""
+                if (otherPredictor.name == "primateai3d") {
                     row = `<tr>
                     ${firstColumn}
                     <td class="four wide column" style="vertical-align: top; white-space: nowrap">
-                        ${otherPredictor.name}
+                        ${predictorName}
                     </td>
-                    <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${colorMapForPredictorScores[otherPredictor.name](otherPredictor)}">
-                        ${otherPredictor.score.toFixed(3)} &nbsp;
-                        <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>
-                    </td>
-                    </tr>`
-                } else if (otherPredictor.name == "PrimateAI-3D") {
-                    row = `<tr>
-                    ${firstColumn}
-                    <td class="four wide column" style="vertical-align: top; white-space: nowrap">
-                        ${otherPredictor.name}
-                    </td>
-                    <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${colorMapForPredictorScores[otherPredictor.name](otherPredictor)}">
+                    <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
                         ${otherPredictor.percentile.toFixed(2)} &nbsp; (gene-specific threshold: ${otherPredictor.genePercentileThreshold.toFixed(2)}) &nbsp;
-                        <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>
+                        ${helpIcon}
                     </td>
                     </tr>`
+                } else {
+                    row = `<tr>
+                    ${firstColumn}
+                    <td class="four wide column" style="vertical-align: top; white-space: nowrap">
+                        ${predictorName}
+                    </td>
+                    <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
+                        ${otherPredictor.score} &nbsp;
+                        ${helpIcon}
+                    </td>
+                    </tr>`
+
                 }
                 tableRows.push(row)
-                firstColumn = "<td></td>"
+                firstColumn = ""
             }
         }
         $(`#other-predictors-header`).after(tableRows.join(""))
