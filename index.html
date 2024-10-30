@@ -1099,12 +1099,43 @@
             "cadd": "CADD",
             "revel": "REVEL",
             "revel_max": "REVEL",
-            "sift_max": "SIFT",
+            "sift_max": "SIFT (max)",
             "phylop": "PhyloP",
-            "gnomad": "gnomAD",
-            "polyphen_max": "PolyPhen",
+            //"gnomad": "gnomAD",
+            "polyphen_max": "PolyPhen (max)",
+        }
+        const gnomADPredictorThresholds = {
+            "revel_max": {
+                "warning": 0.644,
+                "danger": 0.773,
+            },
+            "spliceai_ds_max": {
+                "warning": 0.2,
+                "danger": 0.5,
+            },
+            "pangolin_largest_ds": {
+                "warning": 0.2,
+                "danger": 0.5,
+            },
+            "phylop": {
+                "warning": 7.367,
+                "danger": 9.741,
+            },
+            "sift_max": {
+                "warning": 0.001,
+                "danger": 0,
+            },
+            "polyphen_max": {
+                "warning": 0.978,
+                "danger": 0.999,
+            },
+            "cadd": {
+                "warning": 25.3,
+                "danger": 28.1,
+            },
         }
 
+        //gnomad thresholds: https://github.com/broadinstitute/gnomad-browser/blob/main/browser/src/VariantPage/VariantInSilicoPredictors.tsx#L22-L60
         const colorMapForPredictorScores = {
             "primateai3d": (record) => {
                 if (record.percentile >= record.genePercentileThreshold) { // + 0.1) {
@@ -1139,7 +1170,7 @@
                     return "#ffffff"
                 }
             },
-            "revel": (record) => {
+            "revel_max": (record) => {
                 const score = parseFloat(record.score)
                 if (score >= 0.773) {
                     return "#fccfb8"
@@ -1153,11 +1184,11 @@
                     return "#ffffff"
                 }
             },
-            "sift": (record) => {
+            "sift_max": (record) => {
                 const score = parseFloat(record.score)
                 if (score < 0) {
                     return "#fccfb8"
-                } else if (score < 0.002) {
+                } else if (score < 0.001) {
                     return "#fff19d"
                 } else if (score < 0.081) {
                     return "#cdffd7"
@@ -1165,7 +1196,7 @@
                     return "#ffffff"
                 }
             },
-            "polyphen": (record) => {
+            "polyphen_max": (record) => {
                 const score = parseFloat(record.score)
                 if (score >= 0.999) {
                     return "#fccfb8"
@@ -1178,8 +1209,14 @@
                 }
             },
             "phylop": (record) => {
-                //const score = parseFloat(record.score)
-                return "#ffffff"
+                const score = parseFloat(record.score)
+                if (score >= 9.741) {
+                    return "#fccfb8"
+                } else if (score >= 7.367) {
+                    return "#fff19d"
+                } else {
+                    return "#ffffff"
+                }
             },
 
             "default": (record) => {
