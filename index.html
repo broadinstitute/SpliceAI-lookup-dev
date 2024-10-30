@@ -232,7 +232,7 @@
                                     <div class="ui radio checkbox" style="padding-left:15px; padding-bottom:10px">
                                         <input type="radio" name="gencodeGeneSet" value="basic" checked/><label>basic</label>
                                     </div>
-                                    <div class="ui radio checkbox" style="padding-left:15px; padding-bottom:10px">
+                                    <div class="ui radio disabled checkbox" style="padding-left:15px; padding-bottom:10px">
                                         <input type="radio" name="gencodeGeneSet" value="comprehensive" /><label>comprehensive</label>
                                     </div>
                                 </span>
@@ -1045,14 +1045,14 @@
                 const responseJson = await response.json()
                 console.log("gnomAD response:", responseJson)
                 if (responseJson && responseJson.data && responseJson.data.variant) {
-                  /*
-                  if (responseJson.data.variant.joint && responseJson.data.variant.joint.ac && responseJson.data.variant.joint.an) {
-                    otherPredictorScores.push({
-                        'name': 'gnomAD',
-                        'score': `AC: ${responseJson.data.variant.joint.ac}, &nbsp; AN: ${responseJson.data.variant.joint.an}`,
-                    })
-                  }
-                  */
+                    /*
+                    if (responseJson.data.variant.joint && responseJson.data.variant.joint.ac && responseJson.data.variant.joint.an) {
+                      otherPredictorScores.push({
+                          'name': 'gnomAD',
+                          'score': `AC: ${responseJson.data.variant.joint.ac}, &nbsp; AN: ${responseJson.data.variant.joint.an}`,
+                      })
+                    }
+                    */
 
                     if (responseJson.data.variant.in_silico_predictors) {
                       responseJson.data.variant.in_silico_predictors.forEach((predictor) => {
