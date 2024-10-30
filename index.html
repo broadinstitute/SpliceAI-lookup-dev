@@ -273,9 +273,9 @@
                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues" target="_blank">SpliceAI-lookup/issues</a>: issues or feature requests for this website<br />
                     <br/>
                     <b>November, 2024</b><br />
-                    - show precomputed scores for <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/" target="_blank">PrimateAI-3D</a>, PromoterAI and other in-silico preditors<br />
-                    - allow selection of <a href="https://genome.ucsc.edu/FAQ/FAQgenes.html#gencode" target="_blank">basic or comprehensive</a> Gencode gene set<br />
-                    - update to Gencode v47 <br />
+                    - precomputed scores for <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/" target="_blank">PrimateAI-3D</a>, PromoterAI and other in-silico preditors<br />
+                    - added choice of <a href="https://genome.ucsc.edu/FAQ/FAQgenes.html#gencode" target="_blank">basic or comprehensive</a> Gencode gene set<br />
+                    - updated to Gencode v47 <br />
                     <br />
                     <b>June 20, 2024</b><br />
                     - fixed SpliceAI visualizations to clarify positions of predicted splicing changes. See <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/70" target="_blank">issue #70</a> for details. <br />
@@ -973,6 +973,8 @@
         const ref = variantTokens[2]
         const alt = variantTokens[3]
 
+        //example variant: 1-55039916-G-A  (hg38)
+
         const otherPredictorScores = []
 
         const queryLookupTable = async () => {
@@ -1085,10 +1087,10 @@
         const helpTextForPredictorScores = {
             "primateai3d": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are annotated as likely deleterious.`,
             "promoterai": `PromoterAI scores range from -1 to 1 with 0 meaning no activity, negative values are under-expression and positive values are over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
-            "cadd": "CADD scores",
-            "phylop": "PhyloP scores",
-            "revel": "REVEL scores",
-            "gnomAD": "gnomAD allele counts and allele numbers",
+            //"cadd": "CADD scores",
+            //"phylop": "PhyloP scores",
+            //"revel": "REVEL scores",
+            //"gnomAD": "gnomAD allele counts and allele numbers",
         }
 
         const nameMapForPredictorScores = {
@@ -1124,34 +1126,60 @@
                 }
             },
             "cadd": (record) => {
-                const absScore = Math.abs(parseFloat(record.score))
-                if (absScore >= 20) {
+                const score = parseFloat(record.score)
+                if (score >= 28.1) {
                     return "#fccfb8"
-                } else if (absScore >= 10) {
+                } else if (score >= 25.3) {
                     return "#fff19d"
+                } else if (score >= 22.8) {
+                    return "#cdffd7"
+                } else if (score >= 0.151) {
+                    return "#cdffd7"
                 } else {
                     return "#ffffff"
                 }
             },
             "revel": (record) => {
-                const absScore = Math.abs(parseFloat(record.score))
-                if (absScore >= 0.5) {
+                const score = parseFloat(record.score)
+                if (score >= 0.773) {
                     return "#fccfb8"
-                } else if (absScore >= 0.1) {
+                } else if (score >= 0.644) {
                     return "#fff19d"
+                } else if (score >= 0.291) {
+                    return "#cdffd7"
+                } else if (score >= 0.161) {
+                    return "#cdffd7"
+                } else {
+                    return "#ffffff"
+                }
+            },
+            "sift": (record) => {
+                const score = parseFloat(record.score)
+                if (score < 0) {
+                    return "#fccfb8"
+                } else if (score < 0.002) {
+                    return "#fff19d"
+                } else if (score < 0.081) {
+                    return "#cdffd7"
+                } else {
+                    return "#ffffff"
+                }
+            },
+            "polyphen": (record) => {
+                const score = parseFloat(record.score)
+                if (score >= 0.999) {
+                    return "#fccfb8"
+                } else if (score >= 0.978) {
+                    return "#fff19d"
+                } else if (score >= 0.114) {
+                    return "#cdffd7"
                 } else {
                     return "#ffffff"
                 }
             },
             "phylop": (record) => {
-                const absScore = Math.abs(parseFloat(record.score))
-                if (absScore >= 2) {
-                    return "#fccfb8"
-                } else if (absScore >= 1) {
-                    return "#fff19d"
-                } else {
-                    return "#ffffff"
-                }
+                //const score = parseFloat(record.score)
+                return "#ffffff"
             },
 
             "default": (record) => {
