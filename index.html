@@ -1056,7 +1056,7 @@
 
                     if (responseJson.data.variant.in_silico_predictors) {
                       responseJson.data.variant.in_silico_predictors.forEach((predictor) => {
-                          if (predictor.id.startsWith("spliceai") || predictor.id.startsWith("pangolin") || predictor.id.startsWith("phylop")) {
+                          if (predictor.id.startsWith("spliceai") || predictor.id.startsWith("pangolin")) {
                               return
                           }
                           otherPredictorScores.push({
