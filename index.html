@@ -976,7 +976,8 @@
         //example variant: 1-55039916-G-A  (hg38)
 
         const otherPredictorScores = []
-
+        let gotPrimateAIscores = false
+        let gotPromoterAIscores = false
         const queryLookupTable = async () => {
             await lookupTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
                 //console.log("Got line:", line)
@@ -994,6 +995,7 @@
                 const genePercentilethreshold = parseFloat(fields[5])
                 //console.log("PrimateAI-3D", percentile, genePercentilethreshold)
                 if (!isNaN(percentile)) {
+                    gotPrimateAIscores = true
                     otherPredictorScores.push({
                         'name': 'primateai3d',
                         'percentile': percentile,
@@ -1003,6 +1005,7 @@
                 const promoterAiScore = parseFloat(fields[6])
                 //console.log("PromoterAI", promoterAiScore)
                 if (!isNaN(promoterAiScore)) {
+                    gotPromoterAIscores = true
                     otherPredictorScores.push({
                         'name': 'promoterai',
                         'score': promoterAiScore,
@@ -1086,7 +1089,7 @@
 
         const helpTextForPredictorScores = {
             "primateai3d": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are annotated as likely deleterious.`,
-            "promoterai": `PromoterAI scores range from -1 to 1 with 0 meaning no activity, negative values are under-expression and positive values are over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
+            "promoterai": `PromoterAI scores range from -1 to 1 with 0 meaning no activity, negative values represent under-expression and positive values represent over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
             //"cadd": "CADD scores",
             //"phylop": "PhyloP scores",
             //"revel": "REVEL scores",
@@ -1226,51 +1229,64 @@
 
         $(`#other-predictors-header`).nextAll().remove()
         let firstColumn = `
-            <td class="nine wide column" style="vertical-align: top" rowSpan="${otherPredictorScores.length}">
+            <td class="nine wide column" style="vertical-align: top" rowSpan="${otherPredictorScores.length + (gotPrimateAIscores? 0 : 1) + (gotPromoterAIscores? 0 : 1)}">
                 <div style="margin-right:10px; display: inline-block">${variant}</div><br class="only-large-screen"/>
                 ${normalizedVariantDiv}
             </td>`
 
-        if (otherPredictorScores.length == 0) {
+
+        otherPredictorScores.sort((a, b) => a.name > b.name ? 1 : -1)
+        for (const otherPredictor of otherPredictorScores) {
+            let row
+            const bgColor = (colorMapForPredictorScores[otherPredictor.name] || colorMapForPredictorScores["default"])(otherPredictor)
+            const predictorName = nameMapForPredictorScores[otherPredictor.name] || otherPredictor.name
+            const helpIcon = helpTextForPredictorScores[otherPredictor.name] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>` : ""
+            if (otherPredictor.name == "primateai3d") {
+                row = `<tr>
+                ${firstColumn}
+                <td class="four wide column" style="vertical-align: top; white-space: nowrap">
+                    ${predictorName}
+                </td>
+                <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
+                    ${otherPredictor.percentile.toFixed(2)} &nbsp; (gene-specific threshold: ${otherPredictor.genePercentileThreshold.toFixed(2)}) &nbsp;
+                    ${helpIcon}
+                </td>
+                </tr>`
+            } else {
+                row = `<tr>
+                ${firstColumn}
+                <td class="four wide column" style="vertical-align: top; white-space: nowrap">
+                    ${predictorName}
+                </td>
+                <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
+                    ${otherPredictor.score} &nbsp;
+                    ${helpIcon}
+                </td>
+                </tr>`
+
+            }
+            tableRows.push(row)
+            firstColumn = ""
+        }
+
+
+
+        if (!gotPrimateAIscores) {
             tableRows.push(`<tr>${firstColumn}
                 <td style="vertical-align: top; white-space: nowrap">PrimateAI-3D</td>
-                <td style="vertical-align: top; white-space: nowrap">only available for missense variants</td>
+                <td style="vertical-align: top; white-space: nowrap">only available for missense variants <i class='question circle outline icon' data-html="${helpTextForPredictorScores['primateai3d']}"></i></td>
             </tr>`)
-        } else {
-            otherPredictorScores.sort((a, b) => a.name > b.name ? 1 : -1)
-            for (const otherPredictor of otherPredictorScores) {
-                let row
-                const bgColor = (colorMapForPredictorScores[otherPredictor.name] || colorMapForPredictorScores["default"])(otherPredictor)
-                const predictorName = nameMapForPredictorScores[otherPredictor.name] || otherPredictor.name
-                const helpIcon = helpTextForPredictorScores[otherPredictor.name] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>` : ""
-                if (otherPredictor.name == "primateai3d") {
-                    row = `<tr>
-                    ${firstColumn}
-                    <td class="four wide column" style="vertical-align: top; white-space: nowrap">
-                        ${predictorName}
-                    </td>
-                    <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
-                        ${otherPredictor.percentile.toFixed(2)} &nbsp; (gene-specific threshold: ${otherPredictor.genePercentileThreshold.toFixed(2)}) &nbsp;
-                        ${helpIcon}
-                    </td>
-                    </tr>`
-                } else {
-                    row = `<tr>
-                    ${firstColumn}
-                    <td class="four wide column" style="vertical-align: top; white-space: nowrap">
-                        ${predictorName}
-                    </td>
-                    <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
-                        ${otherPredictor.score} &nbsp;
-                        ${helpIcon}
-                    </td>
-                    </tr>`
-
-                }
-                tableRows.push(row)
-                firstColumn = ""
-            }
+            firstColumn = ""
         }
+
+        if (!gotPromoterAIscores) {
+            tableRows.push(`<tr>${firstColumn}
+                <td style="vertical-align: top; white-space: nowrap">PromoterAI</td>
+                <td style="vertical-align: top; white-space: nowrap">only available for promoter regions <i class='question circle outline icon' data-html="${helpTextForPredictorScores['promoterai']}"></i></td>
+            </tr>`)
+            firstColumn = ""
+        }
+
         $(`#other-predictors-header`).after(tableRows.join(""))
 
     }
