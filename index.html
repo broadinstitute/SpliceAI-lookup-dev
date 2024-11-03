@@ -230,10 +230,10 @@
                                 <span style="display: inline-block; white-space: nowrap;">
                                     <span style="display: inline-block; white-space: nowrap; padding-bottom:10px;"><b>Gencode:</b></span>
                                     <div class="ui radio checkbox" style="padding-left:15px; padding-bottom:10px">
-                                        <input type="radio" name="gencodeGeneSet" value="basic" checked/><label>basic</label>
+                                        <input type="radio" name="gencode-gene-set" value="basic" checked/><label>basic</label>
                                     </div>
-                                    <div class="ui radio disabled checkbox" style="padding-left:15px; padding-bottom:10px">
-                                        <input type="radio" name="gencodeGeneSet" value="comprehensive" /><label>comprehensive</label>
+                                    <div class="ui radio checkbox" style="padding-left:15px; padding-bottom:10px">
+                                        <input type="radio" name="gencode-gene-set" value="comprehensive" /><label>comprehensive</label>
                                     </div>
                                 </span>
                             </div>
@@ -791,7 +791,7 @@
         return genomeVersion === "38" ? "gnomad_r4" : "gnomad_r2_1"
     }
 
-    const generateSplicingResultsTable = async (normalizedVariant, variantConsequence, tool, variant, genomeVersion, maxDistance, mask, showRefAltScoreColumns) => {
+    const generateSplicingResultsTable = async (normalizedVariant, variantConsequence, tool, variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltScoreColumns) => {
         /* Generate the results table to show either the SpliceAI or Pangolin scores */
 
         const variantTokens = (normalizedVariant || "---").split("-")
@@ -801,7 +801,7 @@
         const alt = variantTokens[3]
 
         const baseUrl = baseApiUrl[`${tool.toLowerCase()}-${genomeVersion}`]
-        const urlArgs = `hg=${genomeVersion}&distance=${maxDistance}&mask=${mask}&variant=${chrom}-${pos}-${ref}-${alt}&raw=${variant}&variant_consequence=${variantConsequence}`
+        const urlArgs = `hg=${genomeVersion}&bc=${basicOrComprehensive}&distance=${maxDistance}&mask=${mask}&variant=${chrom}-${pos}-${ref}-${alt}&raw=${variant}&variant_consequence=${variantConsequence}`
 
         let apiResponse
         try {
@@ -905,7 +905,7 @@
                     <a href="https://gnomad.broadinstitute.org/gene/${scores['g_name']}?dataset=${gnomadVersion}" class="small-link" target="_blank">gnomAD</a>,
                     <a href="https://search.clinicalgenome.org/kb/genes?page=1&size=25&search=${scores['g_name']}" class="small-link" target="_blank">ClinGen</a>,
                     <a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${scores['g_name']}" class="small-link" target="_blank">Ensembl</a>,
-                    <a href="https://decipher.sanger.ac.uk/gene/${scores['g_name']}" class="small-link" target="_blank">Decipher</a>,
+                    <a href="https://www.deciphergenomics.org/gene/${scores['g_name']}" class="small-link" target="_blank">Decipher</a>,
                     <a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=${scores['g_name']}" class="small-link" target="_blank">GeneCards</a>
                 </td>`
 
@@ -1670,6 +1670,7 @@
         const variant = $("#search-box").val().trim()
         if (!variant) return
         const genomeVersion = $("input[name='hg']:checked").val().trim()
+        const basicOrComprehensive = $("input[name='gencode-gene-set']:checked").val().trim()
         const maxDistance = $("#max-distance-input").val().trim()
         const mask = $(`input[name='mask']`).prop("checked") ? "1" : "0";
         const showRefAltColumns = $(`input[name='show-ref-alt']`).prop("checked") ? "1" : "0";
@@ -1691,8 +1692,8 @@
 
             //let [spliceaiResponseJson, pangolinResponseJson, variantAnnotationsJson] = await Promise.all([
             let [spliceaiResponseJson, pangolinResponseJson, otherPreditorsResponseJson] = await Promise.all([
-                generateSplicingResultsTable(normalizedVariant, variantConsequence, "SpliceAI", variant, genomeVersion, maxDistance, mask, showRefAltColumns),
-                generateSplicingResultsTable(normalizedVariant, variantConsequence, "Pangolin", variant, genomeVersion, maxDistance, mask, showRefAltColumns),
+                generateSplicingResultsTable(normalizedVariant, variantConsequence, "SpliceAI", variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltColumns),
+                generateSplicingResultsTable(normalizedVariant, variantConsequence, "Pangolin", variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltColumns),
                 generateOtherPredictorsTable(normalizedVariant, variantConsequence, variant, genomeVersion),
                 //generateVariantAnnotationTable(normalizedVariant, genomeVersion),
             ].map(p => p.catch(e => ({'error': e.message}))))  // if an error is thrown, return {'error': e} instead of the JSON response
@@ -1706,7 +1707,7 @@
             $(".exclamation").popup({hoverable: true, html: $(".exclamation").attr("data-content")})
 
             if (spliceaiResponseJson.error) {
-                showError(`SpliceAI API error: ${spliceaiResponseJson.error}`)
+                showError(`${spliceaiResponseJson.error}`)
                 spliceaiResponseJson = null
                 $("#spliceai-table, #transcript-button-table").hide()
             } else {
@@ -1714,7 +1715,7 @@
             }
 
             if (pangolinResponseJson.error) {
-                showError(`Pangolin API error: ${pangolinResponseJson.error}`)
+                showError(`${pangolinResponseJson.error}`)
                 pangolinResponseJson = null
                 $("#pangolin-table").hide()
             } else {
@@ -1725,6 +1726,7 @@
             window.location.hash = "#" + $.param({
                 variant: variant,
                 hg: genomeVersion,
+                bc: basicOrComprehensive,
                 distance: maxDistance,
                 mask: mask,
                 ra: showRefAltColumns,
@@ -1750,9 +1752,17 @@
 
     const applyUrlSettingsToFormElements = () => {
         // get optional settings from the url and update form settings
-        const hgFromUrl = $.urlParam('hg')
+        let hgFromUrl = $.urlParam('hg')
+        if (hgFromUrl == "19") {
+            hgFromUrl = "37"
+        }
         if (hgFromUrl && (hgFromUrl == "38" || hgFromUrl == "37")) {
             $(`input[name='hg'][value='${hgFromUrl}']`).prop("checked", true)
+        }
+
+        const bcFromUrl = $.urlParam('bc')
+        if (bcFromUrl && (bcFromUrl == "basic" || bcFromUrl == "comprehensive")) {
+            $(`input[name='gencode-gene-set'][value='${bcFromUrl}']`).prop("checked", true)
         }
 
         const maxDistanceFromUrl = $.urlParam('distance')
