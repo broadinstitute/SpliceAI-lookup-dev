@@ -589,14 +589,22 @@
 
     const { TabixIndexedFile } = window.gmodTABIX
 
-    const lookupTableUrls = {
+    const primateAndPromoterAiTableUrls = {
         '37': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg19.with_gene_thresholds.txt.gz',
         '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_and_PromoterAI_scores.hg38.tsv.gz',
     }
+    const primateAndPromoterAiTables = {
+        '37': new TabixIndexedFile({ url: primateAndPromoterAiTableUrls['37'], tbiUrl: `${primateAndPromoterAiTableUrls['37']}.tbi` }),
+        '38': new TabixIndexedFile({ url: primateAndPromoterAiTableUrls['38'], tbiUrl: `${primateAndPromoterAiTableUrls['38']}.tbi` }),
+    }
 
-    const lookupTables = {
-        '37': new TabixIndexedFile({ url: lookupTableUrls['37'], tbiUrl: `${lookupTableUrls['37']}.tbi` }),
-        '38': new TabixIndexedFile({ url: lookupTableUrls['38'], tbiUrl: `${lookupTableUrls['38']}.tbi` }),
+    const alphaMissenseTableUrls = {
+        '37': 'https://storage.googleapis.com/spliceai-lookup-reference-data/AlphaMissense_hg19.tsv.gz',
+        '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/AlphaMissense_hg38.tsv.gz',
+    }
+    const alphaMissenseTables  = {
+        '37': new TabixIndexedFile({ url: alphaMissenseTableUrls['37'], tbiUrl: `${alphaMissenseTableUrls['37']}.tbi` }),
+        '38': new TabixIndexedFile({ url: alphaMissenseTableUrls['38'], tbiUrl: `${alphaMissenseTableUrls['38']}.tbi` }),
     }
 
     const getUCSCBrowserUrl = (genomeVersion, chrom, pos) => {
@@ -967,7 +975,7 @@
 
     const generateOtherPredictorsTable = async (normalizedVariant, variantConsequence, variant, genomeVersion) => {
         /* Generate the results table to show either the SpliceAI or Pangolin scores */
-        console.log(`Generating other scores table for ${normalizedVariant} from ${lookupTableUrls[genomeVersion]}`)
+        console.log(`Generating other scores table for ${normalizedVariant} from ${primateAndPromoterAiTableUrls[genomeVersion]}`)
 
         const variantTokens = (normalizedVariant || "---").split("-")
         const chrom = `chr${variantTokens[0].replace("chr", "")}`
@@ -981,49 +989,81 @@
         let gotPrimateAIscores = false
         let gotPromoterAIscores = false
         const queryLookupTable = async () => {
-            await lookupTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
-                //console.log("Got line:", line)
-                const fields = line.split('\t')
-                const lineChrom = fields[0]
-                const linePos = parseInt(fields[1])
-                const lineRef = fields[2]
-                const lineAlt = fields[3]
-                //console.log("`Got scores`:", fields)
+            await Promise.all([
+                primateAndPromoterAiTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
+                    //console.log("Got line:", line)
+                    const fields = line.split('\t')
+                    const lineChrom = fields[0]
+                    const linePos = parseInt(fields[1])
+                    const lineRef = fields[2]
+                    const lineAlt = fields[3]
+                    //console.log("`Got scores`:", fields)
 
-                if (linePos != pos || lineRef != ref || lineAlt != alt) {
-                    return
-                }
-                const percentile = parseFloat(fields[4])
-                const genePercentilethreshold = parseFloat(fields[5])
-                //console.log("PrimateAI-3D", percentile, genePercentilethreshold)
-                if (!isNaN(percentile)) {
-                    gotPrimateAIscores = true
-                    otherPredictorScores.push({
-                        'name': 'primateai3d',
-                        'percentile': percentile,
-                        'genePercentileThreshold': genePercentilethreshold,
-                    })
-                }
-                const promoterAiScore = parseFloat(fields[6])
-                //console.log("PromoterAI", promoterAiScore)
-                if (!isNaN(promoterAiScore)) {
-                    gotPromoterAIscores = true
-                    otherPredictorScores.push({
-                        'name': 'promoterai',
-                        'score': promoterAiScore,
-                    })
-                }
-            },)
+                    if (linePos != pos || lineRef != ref || lineAlt != alt) {
+                        return
+                    }
+                    const percentile = parseFloat(fields[4])
+                    const genePercentilethreshold = parseFloat(fields[5])
+                    //console.log("PrimateAI-3D", percentile, genePercentilethreshold)
+                    if (!isNaN(percentile)) {
+                        gotPrimateAIscores = true
+                        otherPredictorScores.push({
+                            'name': 'primateai3d',
+                            'percentile': percentile,
+                            'genePercentileThreshold': genePercentilethreshold,
+                        })
+                    }
+                    const promoterAiScore = parseFloat(fields[6])
+                    //console.log("PromoterAI", promoterAiScore)
+                    if (!isNaN(promoterAiScore)) {
+                        gotPromoterAIscores = true
+                        otherPredictorScores.push({
+                            'name': 'promoterai',
+                            'score': promoterAiScore,
+                        })
+                    }
+                },),
+
+                alphaMissenseTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
+                    //console.log("Got line:", line)
+                    const fields = line.split('\t')
+                    const lineChrom = fields[0]
+                    const linePos = parseInt(fields[1])
+                    const lineRef = fields[2]
+                    const lineAlt = fields[3]
+                    //console.log("`Got scores`:", fields)
+
+                    if (linePos != pos || lineRef != ref || lineAlt != alt) {
+                        return
+                    }
+                    const transcriptId = fields[6]
+                    const proteinVariant = fields[7]
+                    const alphaMissenseScore = parseFloat(fields[8])
+                    const consequence = fields[9]  //benign, ambiguous, pathogenic
+
+                    //console.log("AlphaMissense", alphaMissenseScore)
+                    if (!isNaN(alphaMissenseScore)) {
+                        otherPredictorScores.push({
+                            'name': 'alphamissense',
+                            'score': alphaMissenseScore,
+                            'transcriptId': transcriptId,
+                            'proteinVariant': proteinVariant,
+                            'consequence': consequence,
+                        })
+                    }
+                },)
+            ])
         }
         /*
            joint {
-                  ac
-                  an
+                ac
+                an
                 homozygote_count
                 hemizygote_count
                 af
                 ac_hom
                 ac_hemi
+           }
          */
 
         const queryGnomAD = async () => {
@@ -1108,6 +1148,7 @@
             "phylop": "PhyloP",
             //"gnomad": "gnomAD",
             "polyphen_max": "PolyPhen (max)",
+            "alphamissense": "AlphaMissense",
         }
         const gnomADPredictorThresholds = {
             "revel_max": {
@@ -1140,87 +1181,99 @@
             },
         }
 
-        //gnomad thresholds: https://github.com/broadinstitute/gnomad-browser/blob/main/browser/src/VariantPage/VariantInSilicoPredictors.tsx#L22-L60
+        //gnomAD browser thresholds: https://github.com/broadinstitute/gnomad-browser/blob/main/browser/src/VariantPage/VariantInSilicoPredictors.tsx#L22-L60
         const colorMapForPredictorScores = {
             "primateai3d": (record) => {
                 if (record.percentile >= record.genePercentileThreshold) { // + 0.1) {
-                    return "#fccfb8"
+                    return "#fccfb8"  // light red
                 //} else if (record.percentile >= record.genePercentileThreshold - 0.1) {
-                //    return "#fff19d"
-                //} else {
-                    return "#ffffff"
+                //    return "#fff19d" // light yellow
+                } else {
+                    return "#ffffff"  // white
                 }
             },
             "promoterai": (record) => {
                 const absScore = Math.abs(parseFloat(record.score))
                 if (absScore >= 0.5) {
-                    return "#fccfb8"
+                    return "#fccfb8"    // light red
                 } else if (absScore >= 0.1) {
-                    return "#fff19d"
+                    return "#fff19d"    // light yellow
                 } else {
-                    return "#ffffff"
+                    return "#ffffff"   // white
                 }
             },
             "cadd": (record) => {
                 const score = parseFloat(record.score)
                 if (score >= 28.1) {
-                    return "#fccfb8"
+                    return "#fccfb8"    // light red
                 } else if (score >= 25.3) {
-                    return "#fff19d"
+                    return "#fff19d"    // light yellow
                 } else if (score >= 22.8) {
-                    return "#cdffd7"
+                    return "#cdffd7"   // light green
                 } else if (score >= 0.151) {
-                    return "#cdffd7"
+                    return "#cdffd7"   // light green
                 } else {
-                    return "#ffffff"
+                    return "#ffffff"   // white
                 }
             },
             "revel_max": (record) => {
                 const score = parseFloat(record.score)
                 if (score >= 0.773) {
-                    return "#fccfb8"
+                    return "#fccfb8"    // light red
                 } else if (score >= 0.644) {
-                    return "#fff19d"
+                    return "#fff19d"   // light yellow
                 } else if (score >= 0.291) {
-                    return "#cdffd7"
+                    return "#cdffd7"   // light green
                 } else if (score >= 0.161) {
-                    return "#cdffd7"
+                    return "#cdffd7"  // light green
                 } else {
-                    return "#ffffff"
+                    return "#ffffff"  // white
                 }
             },
             "sift_max": (record) => {
                 const score = parseFloat(record.score)
                 if (score < 0) {
-                    return "#fccfb8"
+                    return "#fccfb8"  // light red
                 } else if (score < 0.001) {
-                    return "#fff19d"
+                    return "#fff19d"  // light yellow
                 } else if (score < 0.081) {
-                    return "#cdffd7"
+                    return "#cdffd7"  // light green
                 } else {
-                    return "#ffffff"
+                    return "#ffffff"  // white
                 }
             },
             "polyphen_max": (record) => {
                 const score = parseFloat(record.score)
                 if (score >= 0.999) {
-                    return "#fccfb8"
+                    return "#fccfb8"    // light red
                 } else if (score >= 0.978) {
-                    return "#fff19d"
+                    return "#fff19d"   // light yellow
                 } else if (score >= 0.114) {
-                    return "#cdffd7"
+                    return "#cdffd7"  // light green
                 } else {
-                    return "#ffffff"
+                    return "#ffffff"  // white
                 }
             },
             "phylop": (record) => {
                 const score = parseFloat(record.score)
                 if (score >= 9.741) {
-                    return "#fccfb8"
+                    return "#fccfb8"    // light red
                 } else if (score >= 7.367) {
-                    return "#fff19d"
+                    return "#fff19d"    // light yellow
                 } else {
-                    return "#ffffff"
+                    return "#ffffff"  // white
+                }
+            },
+            "alphamissense": (record) => {
+                const consequence = record.consequence
+                if (consequence == "pathogenic" || consequence == "likely_pathogenic") {
+                    return "#fccfb8"    // light red
+                } else if (consequence == "ambiguous") {
+                    return "#fff19d"    // light yellow
+                } else if (consequence == "benign" || consequence == "likely_benign") {
+                    return "#ffffff"  // white
+                } else {
+                    return "#ffffff"  // white
                 }
             },
 
@@ -1254,6 +1307,18 @@
                     ${helpIcon}
                 </td>
                 </tr>`
+            } else if (otherPredictor.name == "alphamissense") {
+                row = `<tr>
+                ${firstColumn}
+                <td class="four wide column" style="vertical-align: top; white-space: nowrap">
+                    ${predictorName}
+                </td>
+                <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
+                    ${otherPredictor.score.toFixed(2)} &nbsp; (consequence: ${(otherPredictor.consequence || '').replace('_', ' ')}) &nbsp;
+                    ${helpIcon}
+                </td>
+                </tr>`
+
             } else {
                 row = `<tr>
                 ${firstColumn}
