@@ -1106,7 +1106,7 @@
                           }
                           otherPredictorScores.push({
                               'name': predictor.id,
-                              'score': parseFloat(predictor.value).toFixed(3),
+                              'score': parseFloat(parseFloat(predictor.value).toFixed(3)),
                           })
                       })
                     }
@@ -1129,14 +1129,6 @@
              </div>
              <br class="only-large-screen"/>`
 
-        const helpTextForPredictorScores = {
-            "primateai3d": `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are annotated as likely deleterious.`,
-            "promoterai": `PromoterAI scores range from -1 to 1 with 0 meaning no activity, negative values represent under-expression and positive values represent over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
-            //"cadd": "CADD scores",
-            //"phylop": "PhyloP scores",
-            //"revel": "REVEL scores",
-            //"gnomAD": "gnomAD allele counts and allele numbers",
-        }
 
         const nameMapForPredictorScores = {
             "primateai3d": "PrimateAI-3D",
@@ -1152,6 +1144,135 @@
         }
 
 
+        const predictorPointsToColor = {
+            "+8": "#ff0000",  // Very Strong Pathogenic (red)
+            "+4": "#ffd7d1",  // Strong Pathogenic (light red)
+            "+3": "#ffdcb8",  // Pathogenic (light orange-red)
+            "+2": "#ffebc5",  // Moderate Pathogenic (light orange)
+            "+1": "#fff5dc",  // Supporting Pathogenic (light yellow)
+            "0": "#f0f0f0",   // Indeterminate (very light gray)
+            "-1": "#d8f3e8",  // Supporting Benign (very light surf green)
+            "-2": "#c4eddd",  // Moderate Benign (pale surf green)
+            "-3": "#aee8d2",  // Benign (light surf green)
+            "-4": "#9ae2c6",   // Strong Benign (soft surf green)
+            "-8": "#00ff00",   // Very Strong Benign (green)
+        }
+
+        const predictorPointsToLabel = {
+            "+8":  "Very Strong Pathogenic range (+8 points)",
+            "+4":  "Strong Pathogenic range (+4 points)",
+            "+3":  "Pathogenic range (+3 points)",
+            "+2":  "Moderate Pathogenic range (+2 points)",
+            "+1":  "Supporting Pathogenic range (+1 point)",
+            "0":  "Indeterminate range (0 points)",
+            "-1": "Supporting Benign range (-1 point)",
+            "-2": "Moderate Benign range (-2 points)",
+            "-3": "Benign range (-3 points)",
+            "-4": "Strong Benign range (-4 points)",
+            "-8": "Very Strong Benign range (-8 points)",
+        }
+        const predictorScoreToPoints = {
+            "cadd": (record) => {
+                const score = parseFloat(record.score)
+                if (score >= 28.1) {   //moderate (pathogenic)
+                    return "+2"
+                } else if (score >= 25.3) { //supporting (pathogenic)
+                    return "+1"
+                } else if (score > 22.7) { //indeterminate
+                    return "0"
+                } else if (score > 17.3) {  // supporting (benign)
+                    return "-1"
+                } else if (score > 0.15) { // moderate (benign)
+                    return "-2"
+                } else {    //strong (benign)
+                    return "-4"
+                }
+            },
+            "revel_max": (record) => {
+                const score = parseFloat(record.score)
+                if (score >= 0.932) {   //strong (pathogenic)
+                    return "+4"
+                } else if (score >= 0.773) { //moderate (pathogenic)
+                    return "+2"
+                } else if (score >= 0.644) {  //supporting (pathogenic)
+                    return "+1"
+                } else if (score > 0.290) { // indeterminate
+                    return "0"
+                } else if (score > 0.183) { // supporting (benign)
+                    return "-1"
+                } else if (score > 0.16) { // moderate (benign)
+                    return "-2"
+                } else if (score > 0.003) { // strong (benign)
+                    return "-4"
+                } else {  // very strong (benign)
+                    return "-8"
+                }
+            },
+            "sift_max": (record) => {
+                const score = parseFloat(record.score)
+                if (score <= 0) {   //moderate (pathogenic)
+                    return "+2"
+                } else if (score < 0.001) { // supporting (pathogenic)
+                    return "+1"
+                } else if (score < 0.08) { // indeterminate
+                    return "0"
+                } else if (score < 0.327) { // supporting (benign)
+                    return "-1"
+                } else { // moderate (benign)
+                    return "-2"
+                }
+            },
+            "polyphen_max": (record) => {
+                const score = parseFloat(record.score)
+                if (score >= 0.999) {  // moderate (pathogenic)
+                    return "+2"
+                } else if (score >= 0.978) {  // supporting (pathogenic)
+                    return "+1"
+                } else if (score > 0.113) { // indeterminate
+                    return "0"
+                } else if (score > 0.009) {  // supporting (benign)
+                    return "-1"
+                } else {  // moderate (benign)
+                    return "-2"
+                }
+            },
+            "phylop": (record) => {
+                const score = parseFloat(record.score)
+                if (score >= 9.741) {    //moderate (pathogenic)
+                    return "+2"
+                } else if (score >= 7.367) {  //supporting (pathogenic)
+                    return "+1"
+                } else if (score > 1.879) {  //indeterminate
+                    return "0"
+                } else if (score > 0.021) {  //supporting (benign)
+                    return "-1"
+                } else { // moderate (benign)
+                    return "-2"
+                }
+            },
+            "alphamissense": (record) => {
+                const score = parseFloat(record.score)
+                if (score >= 0.99) {     // +4 (strong)
+                    return "+4"
+                } else if (score >= 0.972) {  // +3
+                    return "+3"
+                } else if (score >= 0.906) {  // +2 (moderate)
+                    return "+2"
+                } else if (score >= 0.792) {  // +1 (supporting)
+                    return "+1"
+                } else if (score >= 0.170) {   // indeterminate
+                    return "0"
+                } else if (score >= 0.1) {  // supporting (benign)
+                    return "-1"
+                } else if (score >= 0.071) {  // moderate (benign)
+                    return "-2"
+                } else {  //  -3 (benign)
+                    return "-3"
+                }
+            },
+        }
+
+        //seqr thresholds: https://github.com/broadinstitute/seqr/blob/master/ui/shared/utils/constants.js#L1493-L1531
         //gnomAD browser thresholds: https://github.com/broadinstitute/gnomad-browser/blob/main/browser/src/VariantPage/VariantInSilicoPredictors.tsx#L22-L60
         const colorMapForPredictorScores = {
             "primateai3d": (record) => {
@@ -1173,85 +1294,38 @@
                     return "#ffffff"   // white
                 }
             },
-            "cadd": (record) => {
-                const score = parseFloat(record.score)
-                if (score >= 28.1) {
-                    return "#fccfb8"    // light red
-                } else if (score >= 25.3) {
-                    return "#fff19d"    // light yellow
-                } else if (score >= 22.8) {
-                    return "#cdffd7"   // light green
-                } else if (score >= 0.151) {
-                    return "#cdffd7"   // light green
-                } else {
-                    return "#ffffff"   // white
-                }
-            },
-            "revel_max": (record) => {
-                const score = parseFloat(record.score)
-                if (score >= 0.773) {
-                    return "#fccfb8"    // light red
-                } else if (score >= 0.644) {
-                    return "#fff19d"   // light yellow
-                } else if (score >= 0.291) {
-                    return "#cdffd7"   // light green
-                } else if (score >= 0.161) {
-                    return "#cdffd7"  // light green
-                } else {
-                    return "#ffffff"  // white
-                }
-            },
-            "sift_max": (record) => {
-                const score = parseFloat(record.score)
-                if (score < 0) {
-                    return "#fccfb8"  // light red
-                } else if (score < 0.001) {
-                    return "#fff19d"  // light yellow
-                } else if (score < 0.081) {
-                    return "#cdffd7"  // light green
-                } else {
-                    return "#ffffff"  // white
-                }
-            },
-            "polyphen_max": (record) => {
-                const score = parseFloat(record.score)
-                if (score >= 0.999) {
-                    return "#fccfb8"    // light red
-                } else if (score >= 0.978) {
-                    return "#fff19d"   // light yellow
-                } else if (score >= 0.114) {
-                    return "#cdffd7"  // light green
-                } else {
-                    return "#ffffff"  // white
-                }
-            },
-            "phylop": (record) => {
-                const score = parseFloat(record.score)
-                if (score >= 9.741) {
-                    return "#fccfb8"    // light red
-                } else if (score >= 7.367) {
-                    return "#fff19d"    // light yellow
-                } else {
-                    return "#ffffff"  // white
-                }
-            },
-            "alphamissense": (record) => {
-                const consequence = record.consequence
-                if (consequence == "pathogenic" || consequence == "likely_pathogenic") {
-                    return "#fccfb8"    // light red
-                } else if (consequence == "ambiguous") {
-                    return "#fff19d"    // light yellow
-                } else if (consequence == "benign" || consequence == "likely_benign") {
-                    return "#ffffff"  // white
-                } else {
-                    return "#ffffff"  // white
-                }
-            },
-
-            "default": (record) => {
-                return "#ffffff"
-            }
+            "cadd": (record) => predictorPointsToColor[predictorScoreToPoints["cadd"](record)],
+            "revel_max": (record) => predictorPointsToColor[predictorScoreToPoints["revel_max"](record)],
+            "sift_max": (record) => predictorPointsToColor[predictorScoreToPoints["sift_max"](record)],
+            "polyphen_max": (record) => predictorPointsToColor[predictorScoreToPoints["polyphen_max"](record)],
+            "phylop": (record) => predictorPointsToColor[predictorScoreToPoints["phylop"](record)],
+            "alphamissense": (record) => predictorPointsToColor[predictorScoreToPoints["alphamissense"](record)],
         }
+
+        const computeHelpTextForPredictorScores = (predictor, record) => {
+            // example "This CADD score is in the 'moderate pathogenic' range (+2 points) with a score of 25.3"
+            const points = predictorScoreToPoints[predictor](record)
+            const label = predictorPointsToLabel[points]
+            const basedOn = (
+                predictor === 'alphamissense' ?
+                    "<a href='https://www.biorxiv.org/content/10.1101/2024.09.17.611902v1.full' target='_blank'>Bergquist et al. 2024</a>" :
+                    "<a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC9748256/' target='_blank'>Pejaver et al. 2022</a>"
+            )
+            const predictorLabel = nameMapForPredictorScores[predictor] || predictor
+            return `The ${record.score} ${nameMapForPredictorScores[predictor] || predictor} score is in the ${label} based on ${basedOn}`
+        }
+
+        const helpTextForPredictorScores = {
+            "primateai3d": (record) => `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are shown with a red background to indicate a 'likely deleterious' prediction.`,
+            "promoterai": (record) => `PromoterAI scores range from -1 to 1 with 0 meaning no activity, negative values represent under-expression and positive values represent over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
+            "cadd": (record) => computeHelpTextForPredictorScores("cadd", record),
+            "revel_max": (record) => computeHelpTextForPredictorScores("revel_max", record),
+            "sift_max": (record) => computeHelpTextForPredictorScores("sift_max", record),
+            "polyphen_max": (record) => computeHelpTextForPredictorScores("polyphen_max", record),
+            "phylop": (record) => computeHelpTextForPredictorScores("phylop", record),
+            "alphamissense": (record) => computeHelpTextForPredictorScores("alphamissense", record),
+        }
+
 
         $(`#other-predictors-header`).nextAll().remove()
         let firstColumn = `
@@ -1262,11 +1336,12 @@
 
 
         otherPredictorScores.sort((a, b) => a.name > b.name ? 1 : -1)
+
         for (const otherPredictor of otherPredictorScores) {
             let row
-            const bgColor = (colorMapForPredictorScores[otherPredictor.name] || colorMapForPredictorScores["default"])(otherPredictor)
+            const bgColor = (colorMapForPredictorScores[otherPredictor.name] || "#ffffff")(otherPredictor)
             const predictorName = nameMapForPredictorScores[otherPredictor.name] || otherPredictor.name
-            const helpIcon = helpTextForPredictorScores[otherPredictor.name] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name]}"></i>` : ""
+            const helpIcon = helpTextForPredictorScores[otherPredictor.name] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name](otherPredictor)}"></i>` : ""
             if (otherPredictor.name == "primateai3d") {
                 row = `<tr>
                 ${firstColumn}
@@ -1278,18 +1353,6 @@
                     ${helpIcon}
                 </td>
                 </tr>`
-            } else if (otherPredictor.name == "alphamissense") {
-                row = `<tr>
-                ${firstColumn}
-                <td class="four wide column" style="vertical-align: top; white-space: nowrap">
-                    ${predictorName}
-                </td>
-                <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
-                    ${otherPredictor.score.toFixed(2)} &nbsp; (consequence: ${(otherPredictor.consequence || '').replace('_', ' ')}) &nbsp;
-                    ${helpIcon}
-                </td>
-                </tr>`
-
             } else {
                 row = `<tr>
                 ${firstColumn}
@@ -1297,17 +1360,14 @@
                     ${predictorName}
                 </td>
                 <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
-                    ${otherPredictor.score} &nbsp;
+                    ${otherPredictor.score} &nbsp; (${predictorScoreToPoints[otherPredictor.name](otherPredictor)} points) &nbsp;
                     ${helpIcon}
                 </td>
                 </tr>`
-
             }
             tableRows.push(row)
             firstColumn = ""
         }
-
-
 
         if (!gotPrimateAIscores) {
             tableRows.push(`<tr>${firstColumn}
