@@ -743,7 +743,7 @@
         helpText += `<br /><br /><b>Legend:</b><br /><br />`
         // make semantic ui table
         // set borer radius to 0
-        helpText += `<table style='border: none !important; border-collapse: collapse;'>`
+        helpText += `<table style='border: 1px !important; border-collapse: collapse;'>`
         for (const point of ["+8", "+4", "+3", "+2", "+1", "0", "-1", "-2", "-3", "-4", "-8"]) {
             helpText += `<tr><td style='background-color:${predictorPointsToColor[point]};padding:2px 5px;margin:2px;border-radius:5px;'>${predictorPointsToLabel[point]}</td></tr>`
         }
