@@ -446,6 +446,7 @@
                                 <th class="table-header">Variant</th>
                                 <th class="table-header">Method</th>
                                 <th class="table-header">Score</th>
+                                <th class="table-header" style="text-align:right;">Points</th>
                             </tr>
                         </thead>
                     </table>
@@ -570,7 +571,7 @@
 
 
     const predictorPointsToColor = {
-        "+8": "#ff0000",  // Very Strong Pathogenic (red)
+        "+8": "#ff8177",  // Very Strong Pathogenic (red)
         "+4": "#ffd7d1",  // Strong Pathogenic (light red)
         "+3": "#ffdcb8",  // Pathogenic (light orange-red)
         "+2": "#ffebc5",  // Moderate Pathogenic (light orange)
@@ -580,21 +581,21 @@
         "-2": "#c4eddd",  // Moderate Benign (pale surf green)
         "-3": "#aee8d2",  // Benign (light surf green)
         "-4": "#9ae2c6",   // Strong Benign (soft surf green)
-        "-8": "#00ff00",   // Very Strong Benign (green)
+        "-8": "#6fd9ab",   // Very Strong Benign (green)
     }
 
     const predictorPointsToLabel = {
-        "+8":  "Very Strong Pathogenic range (+8 points)",
-        "+4":  "Strong Pathogenic range (+4 points)",
-        "+3":  "Pathogenic range (+3 points)",
-        "+2":  "Moderate Pathogenic range (+2 points)",
-        "+1":  "Supporting Pathogenic range (+1 point)",
-        "0":  "Indeterminate range (0 points)",
-        "-1": "Supporting Benign range (-1 point)",
-        "-2": "Moderate Benign range (-2 points)",
-        "-3": "Benign range (-3 points)",
-        "-4": "Strong Benign range (-4 points)",
-        "-8": "Very Strong Benign range (-8 points)",
+        "+8":  "Very Strong Pathogenic (+8 points)",
+        "+4":  "Strong Pathogenic (+4 points)",
+        "+3":  "Pathogenic (+3 points)",
+        "+2":  "Moderate Pathogenic (+2 points)",
+        "+1":  "Supporting Pathogenic (+1 point)",
+        "0":  "Indeterminate (0 points)",
+        "-1": "Supporting Benign (-1 point)",
+        "-2": "Moderate Benign (-2 points)",
+        "-3": "Benign (-3 points)",
+        "-4": "Strong Benign (-4 points)",
+        "-8": "Very Strong Benign (-8 points)",
     }
     const predictorScoreToPoints = {
         "cadd": (record) => {
@@ -737,7 +738,17 @@
                 "<a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC9748256/' target='_blank'>Pejaver et al. 2022</a>"
         )
         const predictorLabel = nameMapForPredictorScores[predictor] || predictor
-        return `The ${record.score} ${nameMapForPredictorScores[predictor] || predictor} score is in the ${label} based on ${basedOn}`
+        let helpText = `The ${record.score} ${nameMapForPredictorScores[predictor] || predictor} score is in the ${label} range based on thresholds established in ${basedOn}`
+        // generate a color legend as an html table:
+        helpText += `<br /><br /><b>Legend:</b><br /><br />`
+        // make semantic ui table
+        // set borer radius to 0
+        helpText += `<table style='border: none !important; border-collapse: collapse;'>`
+        for (const point of ["+8", "+4", "+3", "+2", "+1", "0", "-1", "-2", "-3", "-4", "-8"]) {
+            helpText += `<tr><td style='background-color:${predictorPointsToColor[point]};padding:2px 5px;margin:2px;border-radius:5px;'>${predictorPointsToLabel[point]}</td></tr>`
+        }
+        helpText += `</table>`
+        return helpText
     }
 
     const helpTextForPredictorScores = {
@@ -1377,7 +1388,7 @@
 
         $(`#other-predictors-header`).nextAll().remove()
         let firstColumn = `
-            <td class="nine wide column" style="vertical-align: top" rowSpan="${otherPredictorScores.length + (gotPrimateAIscores? 0 : 1) + (gotPromoterAIscores? 0 : 1)}">
+            <td class="eight wide column" style="vertical-align: top" rowSpan="${otherPredictorScores.length + (gotPrimateAIscores? 0 : 1) + (gotPromoterAIscores? 0 : 1)}">
                 <div style="margin-right:10px; display: inline-block">${variant}</div><br class="only-large-screen"/>
                 ${normalizedVariantDiv}
             </td>`
@@ -1389,7 +1400,6 @@
             let row
             const bgColor = (colorMapForPredictorScores[otherPredictor.name] || "#ffffff")(otherPredictor)
             const predictorName = nameMapForPredictorScores[otherPredictor.name] || otherPredictor.name
-            const helpIcon = helpTextForPredictorScores[otherPredictor.name] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name](otherPredictor)}"></i>` : ""
             if (otherPredictor.name == "primateai3d") {
                 row = `<tr>
                 ${firstColumn}
@@ -1398,8 +1408,9 @@
                 </td>
                 <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
                     ${otherPredictor.percentile.toFixed(2)} &nbsp; (gene-specific threshold: ${otherPredictor.genePercentileThreshold.toFixed(2)}) &nbsp;
-                    ${helpIcon}
+                    <i class='question circle outline icon' data-position="left center" data-html="${helpTextForPredictorScores[otherPredictor.name](otherPredictor)}">
                 </td>
+                <td class="one wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}"></td>
                 </tr>`
             } else if (otherPredictor.name == "promoterai") {
                 row = `<tr>
@@ -1409,17 +1420,24 @@
                 </td>
                 <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
                     ${otherPredictor.score.toFixed(2)} &nbsp;
-                    ${helpIcon}
+                    <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name](otherPredictor)}">
                 </td>
+                <td class="one wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}"></td>
                 </tr>`
             } else if (otherPredictor.name in predictorScoreToPoints) {
+                const helpIcon = helpTextForPredictorScores[otherPredictor.name] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name](otherPredictor)}"></i>` : ""
+
                 row = `<tr>
                 ${firstColumn}
                 <td class="four wide column" style="vertical-align: top; white-space: nowrap">
                     ${predictorName}
                 </td>
                 <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
-                    ${otherPredictor.score} &nbsp; (${predictorScoreToPoints[otherPredictor.name](otherPredictor)} points) &nbsp;
+                    ${otherPredictor.score}
+                </td>
+                <td class="one wide column" style="vertical-align: top; text-align: right; white-space: nowrap; background-color: ${bgColor}">
+                    ${predictorScoreToPoints[otherPredictor.name](otherPredictor)}
+                    &nbsp;
                     ${helpIcon}
                 </td>
                 </tr>`
@@ -1434,7 +1452,7 @@
         if (!gotPrimateAIscores) {
             tableRows.push(`<tr>${firstColumn}
                 <td style="vertical-align: top; white-space: nowrap">PrimateAI-3D</td>
-                <td style="vertical-align: top; white-space: nowrap">only available for missense variants <i class='question circle outline icon' data-html="${helpTextForPredictorScores['primateai3d']}"></i></td>
+                <td style="vertical-align: top; white-space: nowrap">only available for missense variants <i class='question circle outline icon' data-html="${helpTextForPredictorScores['primateai3d']('primateai3d')}"></i></td>
             </tr>`)
             firstColumn = ""
         }
@@ -1442,7 +1460,7 @@
         if (!gotPromoterAIscores) {
             tableRows.push(`<tr>${firstColumn}
                 <td style="vertical-align: top; white-space: nowrap">PromoterAI</td>
-                <td style="vertical-align: top; white-space: nowrap">only available for promoter regions <i class='question circle outline icon' data-html="${helpTextForPredictorScores['promoterai']}"></i></td>
+                <td style="vertical-align: top; white-space: nowrap">only available for promoter regions <i class='question circle outline icon' data-html="${helpTextForPredictorScores['promoterai']('promoterai')}"></i></td>
             </tr>`)
             firstColumn = ""
         }
