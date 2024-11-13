@@ -7,8 +7,6 @@
         //}
 
         const baseApiUrl = {
-            //"pangolin-37": "https://pangolin-xwkwwwxdwq-uc.a.run.app",
-            //"pangolin-38": "https://pangolin-xwkwwwxdwq-uc.a.run.app",
             "normalize":   "https://liftover-xwkwwwxdwq-uc.a.run.app",
             "pangolin-37": "https://pangolin-37-xwkwwwxdwq-uc.a.run.app",
             "pangolin-38": "https://pangolin-38-xwkwwwxdwq-uc.a.run.app",
@@ -237,7 +235,7 @@
                                     </div>
                                 </span>
                                 <i style="margin-left:10px" class="question circle outline icon" data-position="right center"
-                                   data-content="The basic gene set contains a subset of the most useful Gencode transcripts, prioritizing full-length protein coding transcripts over partial or non-coding ones. The comprehensive gene set conains all Gencode transcripts. It will typically take more time to compute predictions for the comprehensive gene set."></i>
+                                   data-content="The basic gene set starts with the most useful Gencode transcripts, prioritizing full-length protein coding transcripts over partial or non-coding ones. The comprehensive gene set starts with all Gencode transcripts. To improve efficiency, we then filter both gene sets, removing redundant transcripts which differ only in their internal exon boundaries but share the same transcript strand, start, and end coordinates. This filtering approach is based on the fact that SpliceAI (unmasked) scores depend solely on pre-mRNA reference and alternate sequence (defined by transcript strand, start, and end coordinates) and not on exon boundaries."></i>
                             </div>
                             <div class="ui stackable grid">
                                 <div class="row">
@@ -536,7 +534,7 @@
 </div>
 
 <script>
-    const GENCODE_VERSION = "v46"
+    const GENCODE_VERSION = "v47"
 
     const VARIANT_RE = new RegExp(
         "^[\\s]*" +
@@ -781,7 +779,7 @@
         } else {
             return ""
         }
-        return `style='background-color:${color};'`
+        return `style='white-space:nowrap;background-color:${color};'`
     }
 
     const { TabixIndexedFile } = window.gmodTABIX
@@ -975,9 +973,52 @@
         })
     }
 
-    const generateWarningAboutInsertions = (label, score, position, ref, alt) => {
+    const generateWarningAboutInsertions = (label, score, position, ref, alt, scoresForInsertedBases) => {
         //warn about insertion variants that are predicted to cause a donor or acceptor gain somewhere within the inserted sequence.
         if (score >= 0.2 && position == 0 && (alt.length - ref.length) >= 2 && label.toLowerCase().indexOf("gain") >= 0) {
+            let table = ""
+            let tableRows = []
+            // check if scoresForInsertedBases defined and non-empty
+            if (scoresForInsertedBases && scoresForInsertedBases.length > 0) {
+                for (const scoreObj of scoresForInsertedBases) {
+                    const RA = parseFloat(scoreObj.RA)
+                    const AA = parseFloat(scoreObj.AA)
+                    const RD = parseFloat(scoreObj.RD)
+                    const AD = parseFloat(scoreObj.AD)
+
+                    tableRows.push(
+                        `<tr><td>${scoreObj.chrom}</td>
+                             <td style='text-align:right'>${scoreObj.pos}</td>
+                             <td>${scoreObj.ref}</td>
+                             <td>${scoreObj.alt}</td>
+                             <td ${getScoreStyle(RA)}>${RA}</td>
+                             <td ${getScoreStyle(RD)}>${RD}</td>
+                             <td ${getScoreStyle(AA)}>${AA}</td>
+                             <td ${getScoreStyle(AD)}>${AD}</td></tr>`)
+                }
+
+                table = (
+                    `<div>
+                       SpliceAI scores for bases within and around the variant: <br>
+                       <table class='ui celled table'>
+                        <thead>
+                            <tr style='text-align:center'>
+                                <th>Chrom</th>
+                                <th>Pos</th>
+                                <th>Ref</th>
+                                <th>Alt</th>
+                                <th>Acceptor Loss</th>
+                                <th>Donor Loss</th>
+                                <th>Acceptor Gain</th>
+                                <th>Donor Gain</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows.join("\n")}
+                        </tbody>
+                    </table></div>`
+                ).replace(/\n/g, "")
+            }
             let warning = (
                 `<b>WARNING:</b> Although this delta score suggests a possible ${label.toLowerCase()} ` +
                 `directly within the inserted sequence, the exact location and biological consequence of the predicted splicing ` +
@@ -988,7 +1029,12 @@
                 `that 1) the variant is an insertion of at least 2bp and 2) its delta score is ≥ 0.2 and has a relative position of 0bp. `
             )
 
-            return `<i style="margin-left:10px; color:red" class="exclamation circle icon" data-position="right center" data-content="${warning}"></i>`
+            let iconHtml = `<i style="margin-left:10px; color:red" class="exclamation circle icon" data-position="right center" data-html="${warning}"></i>`
+            if (table) {
+                iconHtml += `<i style="margin-left:10px; color:#000080" class="table icon score-table" data-position="right center" data-html="${table}"></i>`
+            }
+            return iconHtml
+
         } else {
             return ""
         }
@@ -1132,7 +1178,7 @@
                 row += `<td>${label}</td>
                         <td ${getScoreStyle(scores[DS])}>
                             ${formatScore(scores[DS])}
-                            ${generateWarningAboutInsertions(label, scores[DS], scores[DP], ref, alt)}
+                            ${generateWarningAboutInsertions(label, scores[DS], scores[DP], ref, alt, scores["SCORES_FOR_INSERTED_BASES"])}
                          </td>
                         <td>${
                             (
@@ -1557,7 +1603,7 @@
                         chr: chrom,   //see createVCFVariant function in the igv.js repo for the allowed fields
                         pos: variantPos,
                         start: variantPos - 1,
-                        end: variantPos,
+                        end: variantPos + variantRef.length - 1,
                         referenceAllele: variantRef,
                         alternateBases: variantAlt,
                         names: ".", // id in VCF
@@ -1814,11 +1860,14 @@
 
             $("#response-box").show()
 
-            $(".question").popup({"on": "click"})
-            $(".question").css("cursor", "pointer")
-            $(".question").css("color", "#666666")
+            $(".question, .exclamation, .score-table").popup({
+                "on": "click",
+                "lastResort": "bottom left",
+            })
+            $(".question").css({"color": "#666666", "cursor": "pointer"})
+            $(".score-table").css({"color": "#000080", "cursor": "pointer"})
+            $(".exclamation").css({"cursor": "pointer"})
 
-            $(".exclamation").popup({hoverable: true, html: $(".exclamation").attr("data-content")})
 
             if (spliceaiResponseJson.error) {
                 showError(`${spliceaiResponseJson.error}`)
@@ -1928,8 +1977,8 @@
         $("#gencode-version").text(GENCODE_VERSION)
         // init UI elements
         $(".ui.checkbox").checkbox()
-        $(".question").popup({"on": "click"})
-        $(".question").css("cursor", "pointer")
+        $(".question, .exclamation, .score-table").popup({"on": "click"})
+        $(".question, .exclamation, .score-table").css("cursor", "pointer")
         $("#search-box").focus()
         $("#response-box").hide()
 
