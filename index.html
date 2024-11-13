@@ -585,17 +585,17 @@
     }
 
     const predictorPointsToLabel = {
-        "+8":  "Very Strong Pathogenic (+8 points)",
-        "+4":  "Strong Pathogenic (+4 points)",
-        "+3":  "Pathogenic (+3 points)",
-        "+2":  "Moderate Pathogenic (+2 points)",
-        "+1":  "Supporting Pathogenic (+1 point)",
-        "0":  "Indeterminate (0 points)",
-        "-1": "Supporting Benign (-1 point)",
-        "-2": "Moderate Benign (-2 points)",
-        "-3": "Benign (-3 points)",
-        "-4": "Strong Benign (-4 points)",
-        "-8": "Very Strong Benign (-8 points)",
+        "+8":  "Very Strong Pathogenic",
+        "+4":  "Strong Pathogenic",
+        "+3":  "Pathogenic",
+        "+2":  "Moderate Pathogenic",
+        "+1":  "Supporting Pathogenic",
+        "0":  "Indeterminate",
+        "-1": "Supporting Benign",
+        "-2": "Moderate Benign",
+        "-3": "Benign",
+        "-4": "Strong Benign",
+        "-8": "Very Strong Benign",
     }
     const predictorScoreToPoints = {
         "cadd": (record) => {
@@ -732,20 +732,15 @@
         // example "This CADD score is in the 'moderate pathogenic' range (+2 points) with a score of 25.3"
         const points = predictorScoreToPoints[predictor](record)
         const label = predictorPointsToLabel[points]
-        const basedOn = (
-            predictor === 'alphamissense' ?
-                "<a href='https://www.biorxiv.org/content/10.1101/2024.09.17.611902v1.full' target='_blank'>Bergquist et al. 2024</a>" :
-                "<a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC9748256/' target='_blank'>Pejaver et al. 2022</a>"
-        )
         const predictorLabel = nameMapForPredictorScores[predictor] || predictor
-        let helpText = `The ${record.score} ${nameMapForPredictorScores[predictor] || predictor} score is in the ${label} range based on thresholds established in ${basedOn}`
+        let helpText = `The ${record.score} ${nameMapForPredictorScores[predictor] || predictor} score is in the ${label} range and would count for ${points} points based on thresholds and points established in <a href='https://www.biorxiv.org/content/10.1101/2024.09.17.611902v1.full' target='_blank'>Bergquist et al. 2024</a> and <a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC9748256/' target='_blank'>Pejaver et al. 2022</a>`
         // generate a color legend as an html table:
         helpText += `<br /><br /><b>Legend:</b><br /><br />`
         // make semantic ui table
         // set borer radius to 0
         helpText += `<table style='border: 1px !important; border-collapse: collapse;'>`
-        for (const point of ["+8", "+4", "+3", "+2", "+1", "0", "-1", "-2", "-3", "-4", "-8"]) {
-            helpText += `<tr><td style='background-color:${predictorPointsToColor[point]};padding:2px 5px;margin:2px;border-radius:5px;'>${predictorPointsToLabel[point]}</td></tr>`
+        for (const points of ["+8", "+4", "+3", "+2", "+1", "0", "-1", "-2", "-3", "-4", "-8"]) {
+            helpText += `<tr style='background-color:${predictorPointsToColor[points]}'><td style='padding:5px;margin:5px;border-radius:0px;min-width:170px'>${predictorPointsToLabel[points]}</td><td style='min-width:100px; text-align:right'>${points} points</td></tr>`
         }
         helpText += `</table>`
         return helpText
