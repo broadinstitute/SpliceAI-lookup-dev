@@ -440,9 +440,14 @@
                     <table id="other-predictors-table" class="ui stackable table">
                         <thead id="other-predictors-header">
                             <tr>
-                                <th style="background-color:white" colspan="3">Other in-silico predictors:</th>
+                                <th style="background-color:white" colspan="4">Other in-silico predictors:</th>
                             </tr>
-                            <tr>
+                            <tr id="show-other-predictors-row">
+                                <td colspan="4">
+                                    <button id="show-other-predictors-button" class="ui primary button" style="margin-bottom: 15px">Show</button>
+                                </td>
+                            </tr>
+                            <tr class="other-predictors-row" style="display:none">
                                 <th class="table-header">Variant</th>
                                 <th class="table-header">Method</th>
                                 <th class="table-header">Score</th>
@@ -1396,7 +1401,7 @@
             const bgColor = (colorMapForPredictorScores[otherPredictor.name] || "#ffffff")(otherPredictor)
             const predictorName = nameMapForPredictorScores[otherPredictor.name] || otherPredictor.name
             if (otherPredictor.name == "primateai3d") {
-                row = `<tr>
+                row = `<tr class="other-predictors-row" style="display:none">
                 ${firstColumn}
                 <td class="four wide column" style="vertical-align: top; white-space: nowrap">
                     ${predictorName}
@@ -1408,9 +1413,9 @@
                 <td class="one wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}"></td>
                 </tr>`
             } else if (otherPredictor.name == "promoterai") {
-                row = `<tr>
+                row = `<tr class="other-predictors-row" style="display:none">
                 ${firstColumn}
-                <td class="four wide column" style="vertical-align: top; white-space: nowrap">
+                <td class="four wide column" style="vertical-align:top; white-space:nowrap">
                     ${predictorName}
                 </td>
                 <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
@@ -1422,7 +1427,7 @@
             } else if (otherPredictor.name in predictorScoreToPoints) {
                 const helpIcon = helpTextForPredictorScores[otherPredictor.name] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name](otherPredictor)}"></i>` : ""
 
-                row = `<tr>
+                row = `<tr class="other-predictors-row" style="display:none">
                 ${firstColumn}
                 <td class="four wide column" style="vertical-align: top; white-space: nowrap">
                     ${predictorName}
@@ -1445,7 +1450,7 @@
         }
 
         if (!gotPrimateAIscores) {
-            tableRows.push(`<tr>${firstColumn}
+            tableRows.push(`<tr class="other-predictors-row"  style="display:none">${firstColumn}
                 <td style="vertical-align: top; white-space: nowrap">PrimateAI-3D</td>
                 <td style="vertical-align: top; white-space: nowrap">only available for missense variants <i class='question circle outline icon' data-html="${helpTextForPredictorScores['primateai3d']('primateai3d')}"></i></td>
             </tr>`)
@@ -1453,7 +1458,7 @@
         }
 
         if (!gotPromoterAIscores) {
-            tableRows.push(`<tr>${firstColumn}
+            tableRows.push(`<tr class="other-predictors-row"  style="display:none">${firstColumn}
                 <td style="vertical-align: top; white-space: nowrap">PromoterAI</td>
                 <td style="vertical-align: top; white-space: nowrap">only available for promoter regions <i class='question circle outline icon' data-html="${helpTextForPredictorScores['promoterai']('promoterai')}"></i></td>
             </tr>`)
@@ -2008,6 +2013,11 @@
             $("#show-igv-button").text("Update")
             $("#igv-div").show()
             await updateIgvBrowser(lastSpliceaiResponseJson, lastPangolinResponseJson, lastGenomeVersion)
+        })
+
+        $("#show-other-predictors-button").click(() => {
+            $(".other-predictors-row").show()
+            $("#show-other-predictors-row").hide()
         })
 
         updateVisualizationCheckboxes(true, "38")
