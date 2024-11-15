@@ -1463,7 +1463,7 @@
 
         if (missingScores.length > 0) {
             console.log("Missing scores for", missingScores)
-            const missingScoresRow = `<tr><td class="four wide column" style="vertical-align: top; white-space: nowrap" colspan="4">The following scores are not available for this variant:${missingScores.length > 1 ? '<br />' : ''}<div style="padding-left: 30px; padding-top: 10px; display:inline-block">${missingScores.map((name) => nameMapForPredictorScores[name]).join("<br />")}</div></td></tr>`
+            const missingScoresRow = `<tr><td class="four wide column" style="vertical-align: top; white-space: nowrap" colspan="4">The following scores are not available for this variant:${missingScores.length > 1 ? '<br />' : ''}<div style="padding-left: 30px; padding-top: 10px; display:inline-block">${missingScores.map((name) => nameMapForPredictorScores[name]).join(", &nbsp;")}</div></td></tr>`
             tableRows.push(missingScoresRow)
         }
         $("#other-predictors-header").after(tableRows.join(""))
