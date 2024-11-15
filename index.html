@@ -146,7 +146,7 @@
                             <div>
                                 <div style="display:inline-block; ">Enter a variant below to see its
                                     <a href="https://pubmed.ncbi.nlm.nih.gov/30661751" target="_blank">SpliceAI</a>, 
-                                    <a href="https://github.com/tkzeng/Pangolin" target="_blank">Pangolin</a>, and other in-silico prediction scores
+                                    <a href="https://github.com/tkzeng/Pangolin" target="_blank">Pangolin</a>, and other scores
                                 </div>
                                 <a id="more-details1-button" href="#" style="float:right; padding-right:7px" onclick="$('#more-details1').show();$('#more-details1-button').hide();">[more details]</a>
                                 <div id="more-details1" style="display:none">
@@ -272,17 +272,21 @@
                 <div>
                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues" target="_blank">SpliceAI-lookup/issues</a>: issues or feature requests for this website<br />
                     <br/>
-                    <b>November, 2024</b><br />
-                    - precomputed scores for <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/" target="_blank">PrimateAI-3D</a>, PromoterAI and other in-silico preditors<br />
-                    - added choice of Gencode <a href="https://genome.ucsc.edu/FAQ/FAQgenes.html#gencode" target="_blank">basic or comprehensive</a> transcripts<br />
-                    - updated to Gencode v47 <br />
-                    <br />
-                    <b>June 20, 2024</b><br />
-                    - fixed SpliceAI visualizations to clarify positions of predicted splicing changes. See <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/70" target="_blank">issue #70</a> for details. <br />
-                    <br />
+                    <b>November 13, 2024</b>
+                    <ul>
+                    <li>optionally show scores from <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/" target="_blank">PrimateAI-3D</a>, PromoterAI, <a href="https://www.science.org/doi/10.1126/science.adg7492" target="_blank">AlphaMissense</a> and other scores</li>
+                    <li>provide a table with detailed SpliceAI scores for insertion variants whenever donor or acceptor gain is predicted to occurs within the inserted sequence itself. This addresses <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/84" target="_blank">issue #84</a>.</li>
+                    <li><b style="color:#880000">MAJOR BUG FIX:</b> Between April and November of 2024, <b>Pangolin</b> scores were incorrectly computed for ~28% of hg38 variants and ~5% of hg19 variants due to a SpliceAI-lookup bug when multiple requests were processed in parallel. <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/81" target="_blank">This issue</a> has now been fixed.<br/>SpliceAI scores were not affected by this bug.</li>
+                    </ul>
                     <a id="more-details3-button" href="#"
                        onclick="$('#more-details3').show();$('#more-details3-button').hide();">[show older updates]</a>
                     <div id="more-details3" style="display:none">
+                        <b>November 3, 2024</b><br />
+                        - added choice of Gencode <a href="https://genome.ucsc.edu/FAQ/FAQgenes.html#gencode" target="_blank">basic or comprehensive</a> transcripts<br />
+                        - updated to Gencode v47 <br />
+                        <b>June 20, 2024</b><br />
+                        - fixed SpliceAI visualizations to clarify positions of predicted splicing changes. See <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/70" target="_blank">issue #70</a> for details. <br />
+                        <br />
                         <b>June 3, 2024</b><br />
                         - show the input variant's <a href="https://useast.ensembl.org/info/docs/tools/vep/index.html" target="blank">VEP</a> consequence in the results table<br />
                         - the Gencode gene track is now optional in the visualizations<br />
@@ -440,14 +444,14 @@
                     <table id="other-predictors-table" class="ui stackable table">
                         <thead id="other-predictors-header">
                             <tr>
-                                <th style="background-color:white" colspan="4">Other in-silico predictors:</th>
+                                <th style="background-color:white" colspan="4">Other scores:</th>
                             </tr>
-                            <tr id="show-other-predictors-row">
+                            <!--tr id="show-other-predictors-row">
                                 <td colspan="4">
                                     <button id="show-other-predictors-button" class="ui primary button" style="margin-bottom: 15px">Show</button>
                                 </td>
-                            </tr>
-                            <tr class="other-predictors-row" style="display:none">
+                            </tr-->
+                            <tr>
                                 <th class="table-header">Variant</th>
                                 <th class="table-header">Method</th>
                                 <th class="table-header">Score</th>
@@ -602,6 +606,7 @@
         "-4": "Strong Benign",
         "-8": "Very Strong Benign",
     }
+
     const predictorScoreToPoints = {
         "cadd": (record) => {
             const score = parseFloat(record.score)
@@ -702,6 +707,7 @@
             }
         },
     }
+
 
     //seqr thresholds: https://github.com/broadinstitute/seqr/blob/master/ui/shared/utils/constants.js#L1493-L1531
     //gnomAD browser thresholds: https://github.com/broadinstitute/gnomad-browser/blob/main/browser/src/VariantPage/VariantInSilicoPredictors.tsx#L22-L60
@@ -1253,8 +1259,6 @@
         //example variant: 1-55039916-G-A  (hg38)
 
         const otherPredictorScores = []
-        let gotPrimateAIscores = false
-        let gotPromoterAIscores = false
         const queryLookupTable = async () => {
             await Promise.all([
                 primateAndPromoterAiTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
@@ -1273,7 +1277,6 @@
                     const genePercentilethreshold = parseFloat(fields[5])
                     //console.log("PrimateAI-3D", percentile, genePercentilethreshold)
                     if (!isNaN(percentile)) {
-                        gotPrimateAIscores = true
                         otherPredictorScores.push({
                             'name': 'primateai3d',
                             'percentile': percentile,
@@ -1283,7 +1286,6 @@
                     const promoterAiScore = parseFloat(fields[6])
                     //console.log("PromoterAI", promoterAiScore)
                     if (!isNaN(promoterAiScore)) {
-                        gotPromoterAIscores = true
                         otherPredictorScores.push({
                             'name': 'promoterai',
                             'score': promoterAiScore,
@@ -1386,7 +1388,6 @@
         await Promise.all([queryLookupTable(), queryGnomAD()]) //.map(p => p.catch(e => ({'error': e.message})))
 
         console.log("Other predictors scores:", otherPredictorScores)
-
         const tableRows = []
         const noDifferenceDueToNormalization = variant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-") == normalizedVariant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-")
         const normalizedVariantDiv = noDifferenceDueToNormalization ? "" :
@@ -1397,88 +1398,75 @@
              <br class="only-large-screen"/>`
 
 
-
+        const otherPredictorNames = [
+            "alphamissense", "cadd", "phylop", "polyphen_max", "primateai3d", "promoterai", "revel_max", "sift_max",
+        ]
 
         $(`#other-predictors-header`).nextAll().remove()
         let firstColumn = `
-            <td class="eight wide column" style="vertical-align: top" rowSpan="${otherPredictorScores.length + (gotPrimateAIscores? 0 : 1) + (gotPromoterAIscores? 0 : 1)}">
+            <td class="eight wide column" style="vertical-align: top" rowSpan="${otherPredictorNames.length}">
                 <div style="margin-right:10px; display: inline-block">${variant}</div><br class="only-large-screen"/>
                 ${normalizedVariantDiv}
             </td>`
 
 
-        otherPredictorScores.sort((a, b) => a.name > b.name ? 1 : -1)
+        //otherPredictorScores.sort((a, b) => a.name > b.name ? 1 : -1)
 
+        const otherPredictorMap = {}
         for (const otherPredictor of otherPredictorScores) {
-            let row
-            const bgColor = (colorMapForPredictorScores[otherPredictor.name] || "#ffffff")(otherPredictor)
-            const predictorName = nameMapForPredictorScores[otherPredictor.name] || otherPredictor.name
-            if (otherPredictor.name == "primateai3d") {
-                row = `<tr class="other-predictors-row" style="display:none">
-                ${firstColumn}
-                <td class="four wide column" style="vertical-align: top; white-space: nowrap">
-                    ${predictorName}
-                </td>
-                <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
-                    ${otherPredictor.percentile.toFixed(2)} &nbsp; (gene-specific threshold: ${otherPredictor.genePercentileThreshold.toFixed(2)}) &nbsp;
-                    <i class='question circle outline icon' data-position="left center" data-html="${helpTextForPredictorScores[otherPredictor.name](otherPredictor)}">
-                </td>
-                <td class="one wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}"></td>
-                </tr>`
-            } else if (otherPredictor.name == "promoterai") {
-                row = `<tr class="other-predictors-row" style="display:none">
-                ${firstColumn}
-                <td class="four wide column" style="vertical-align:top; white-space:nowrap">
-                    ${predictorName}
-                </td>
-                <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
-                    ${otherPredictor.score.toFixed(2)} &nbsp;
-                    <i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name](otherPredictor)}">
-                </td>
-                <td class="one wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}"></td>
-                </tr>`
-            } else if (otherPredictor.name in predictorScoreToPoints) {
-                const helpIcon = helpTextForPredictorScores[otherPredictor.name] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictor.name](otherPredictor)}"></i>` : ""
+            otherPredictorMap[otherPredictor.name] = otherPredictor
+        }
 
-                row = `<tr class="other-predictors-row" style="display:none">
-                ${firstColumn}
-                <td class="four wide column" style="vertical-align: top; white-space: nowrap">
-                    ${predictorName}
-                </td>
-                <td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">
-                    ${otherPredictor.score}
-                </td>
-                <td class="one wide column" style="vertical-align: top; text-align: right; white-space: nowrap; background-color: ${bgColor}">
-                    ${predictorScoreToPoints[otherPredictor.name](otherPredictor)}
-                    &nbsp;
-                    ${helpIcon}
-                </td>
-                </tr>`
+        const missingScores = []
+        for (const otherPredictorName of otherPredictorNames) {
+            const predictorLabel = nameMapForPredictorScores[otherPredictorName] || otherPredictorName
+            const otherPredictor = otherPredictorMap[otherPredictorName]
+            const bgColor = otherPredictor && colorMapForPredictorScores[otherPredictorName] ? colorMapForPredictorScores[otherPredictorName](otherPredictor) : "#ffffff"
+            const helpIcon = otherPredictor && helpTextForPredictorScores[otherPredictorName] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictorName](otherPredictor)}"></i>` : ""
+
+            let row = `<tr>${firstColumn}<td class="four wide column" style="vertical-align: top; white-space: nowrap">${predictorLabel}</td>`
+            if (otherPredictorName == "primateai3d") {
+                if (otherPredictor) {
+                    row += `<td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">${otherPredictor.percentile.toFixed(2)} &nbsp; (gene-specific threshold: ${otherPredictor.genePercentileThreshold.toFixed(2)}) &nbsp; ${helpIcon}</td><td class="one wide column" style="background-color: ${bgColor}"></td></tr>`
+                    tableRows.push(row)
+                    firstColumn = ""
+                } else {
+                    missingScores.push(otherPredictorName)
+                    //row += `<td style="vertical-align: top; white-space: nowrap">only available for missense variants ${helpIcon}</td></tr>`
+                }
+            } else if (otherPredictorName == "promoterai") {
+                if (otherPredictor) {
+                    row += `<td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">${otherPredictor.score.toFixed(2)} &nbsp; ${helpIcon}</td>
+                    <td class="one wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}"></td></tr>`
+                    tableRows.push(row)
+                    firstColumn = ""
+                } else {
+                    missingScores.push(otherPredictorName)
+                    //row += `<td style="vertical-align: top; white-space: nowrap">only available for promoter regions ${helpIcon}</td></tr>`
+                }
+            } else if (otherPredictorName in predictorScoreToPoints) {
+                if (otherPredictor) {
+                    row +=`<td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">${otherPredictor.score}</td>
+                        <td class="one wide column" style="vertical-align: top; text-align: right; white-space: nowrap; background-color: ${bgColor}">
+                            ${predictorScoreToPoints[otherPredictorName](otherPredictor)}&nbsp;${helpIcon}
+                        </td></tr>`
+                    tableRows.push(row)
+                    firstColumn = ""
+                } else {
+                    missingScores.push(otherPredictorName)
+                    //row += `<td style="vertical-align: top; white-space: nowrap">score not available for this variant ${helpIcon}</td></tr>`
+                }
             } else {
-                console.error("Unknown predictor", otherPredictor)
+                console.error("Unknown predictor", otherPredictorName)
             }
-
-            tableRows.push(row)
-            firstColumn = ""
         }
 
-        if (!gotPrimateAIscores) {
-            tableRows.push(`<tr class="other-predictors-row"  style="display:none">${firstColumn}
-                <td style="vertical-align: top; white-space: nowrap">PrimateAI-3D</td>
-                <td style="vertical-align: top; white-space: nowrap">only available for missense variants <i class='question circle outline icon' data-html="${helpTextForPredictorScores['primateai3d']('primateai3d')}"></i></td>
-            </tr>`)
-            firstColumn = ""
+        if (missingScores.length > 0) {
+            console.log("Missing scores for", missingScores)
+            const missingScoresRow = `<tr>${firstColumn}<td class="four wide column" style="vertical-align: top; white-space: nowrap" colspan="3">The following scores are not available for this variant:${missingScores.length > 1 ? '<br />' : ''}<div style="padding-left: 30px; padding-top: 10px; display:inline-block">${missingScores.map((name) => nameMapForPredictorScores[name]).join("<br />")}</div></td></tr>`
+            tableRows.push(missingScoresRow)
         }
-
-        if (!gotPromoterAIscores) {
-            tableRows.push(`<tr class="other-predictors-row"  style="display:none">${firstColumn}
-                <td style="vertical-align: top; white-space: nowrap">PromoterAI</td>
-                <td style="vertical-align: top; white-space: nowrap">only available for promoter regions <i class='question circle outline icon' data-html="${helpTextForPredictorScores['promoterai']('promoterai')}"></i></td>
-            </tr>`)
-            firstColumn = ""
-        }
-
-        $(`#other-predictors-header`).after(tableRows.join(""))
+        $("#other-predictors-header").after(tableRows.join(""))
 
     }
 
@@ -1521,7 +1509,6 @@
                         console.log(e)
                     }
                 }
-                //console.log("Retrieved tracksToShow from local storage", tracksToShow)
             }
             
         } else {
@@ -2028,10 +2015,12 @@
             await updateIgvBrowser(lastSpliceaiResponseJson, lastPangolinResponseJson, lastGenomeVersion)
         })
 
+        /*
         $("#show-other-predictors-button").click(() => {
             $(".other-predictors-row").show()
             $("#show-other-predictors-row").hide()
         })
+        */
 
         updateVisualizationCheckboxes(true, "38")
 
