@@ -759,7 +759,7 @@
 
     const helpTextForPredictorScores = {
         "primateai3d": (record) => `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are shown with a red background to indicate a 'likely deleterious' prediction.`,
-        "promoterai": (record) => `PromoterAI scores range from -1 to 1 with 0 meaning no activity, negative values represent under-expression and positive values represent over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
+        "promoterai": (record) => `PromoterAI scores range from -1 to 1 with 0 meaning no activity. Negative values represent under-expression and positive values represent over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
         "cadd": (record) => computeHelpTextForPredictorScores("cadd", record),
         "revel_max": (record) => computeHelpTextForPredictorScores("revel_max", record),
         "sift_max": (record) => computeHelpTextForPredictorScores("sift_max", record),
@@ -1463,7 +1463,7 @@
 
         if (missingScores.length > 0) {
             console.log("Missing scores for", missingScores)
-            const missingScoresRow = `<tr><td class="four wide column" style="vertical-align: top; white-space: nowrap" colspan="4">The following scores are not available for this variant:${missingScores.length > 1 ? '<br />' : ''}<div style="padding-left: 30px; padding-top: 10px; display:inline-block">${missingScores.map((name) => nameMapForPredictorScores[name]).join(", &nbsp;")}</div></td></tr>`
+            const missingScoresRow = `<tr><td class="four wide column"></td><td class="four wide column" style="vertical-align: top; white-space: nowrap" colspan="3"><div style="padding-top: 10px; display:inline-block">${missingScores.map((name, i) => `${i < missingScores.length - 1 ? nameMapForPredictorScores[name] : 'and ' + nameMapForPredictorScores[name]}`).join(", &nbsp;")} scores are not available for this variant</div></td></tr>`
             tableRows.push(missingScoresRow)
         }
         $("#other-predictors-header").after(tableRows.join(""))
