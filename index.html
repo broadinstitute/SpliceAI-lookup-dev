@@ -276,7 +276,7 @@
                     <ul>
                     <li>optionally show scores from <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/" target="_blank">PrimateAI-3D</a>, PromoterAI, <a href="https://www.science.org/doi/10.1126/science.adg7492" target="_blank">AlphaMissense</a> and other scores</li>
                     <li>provide a table with detailed SpliceAI scores for insertion variants whenever donor or acceptor gain is predicted to occurs within the inserted sequence itself. This addresses <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/84" target="_blank">issue #84</a>.</li>
-                    <li><b style="color:#880000">MAJOR BUG FIX:</b> Between April and November of 2024, <b>Pangolin</b> scores were incorrectly computed for ~28% of hg38 variants and ~5% of hg19 variants due to a SpliceAI-lookup bug when multiple requests were processed in parallel. <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/81" target="_blank">This issue</a> has now been fixed.<br/>SpliceAI scores were not affected by this bug.</li>
+                    <li><b style="color:#880000">MAJOR BUG FIX:</b> Between April and November of 2024, <b>Pangolin</b> scores were incorrectly computed for ~28% of hg38 variants and ~5% of hg19 variants due to a bug related to multiple requests being processed in parallel. <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/81" target="_blank">This issue</a> has now been fixed.<br/>SpliceAI scores were not affected by this bug.</li>
                     </ul>
                     <a id="more-details3-button" href="#"
                        onclick="$('#more-details3').show();$('#more-details3-button').hide();">[show older updates]</a>
