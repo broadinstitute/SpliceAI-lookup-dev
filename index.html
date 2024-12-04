@@ -1457,7 +1457,6 @@
                     firstColumn = ""
                 } else {
                     missingScores.push(otherPredictorName)
-                    //row += `<td style="vertical-align: top; white-space: nowrap">score not available for this variant ${helpIcon}</td></tr>`
                 }
             } else {
                 console.error("Unknown predictor", otherPredictorName)
@@ -1466,7 +1465,7 @@
 
         if (missingScores.length > 0) {
             console.log("Missing scores for", missingScores)
-            const missingScoresRow = `<tr><td class="four wide column"></td><td class="four wide column" style="vertical-align: top; white-space: nowrap" colspan="3"><div style="padding-top: 10px; display:inline-block">${missingScores.map((name, i) => `${i === 0 || i < missingScores.length - 1 ? nameMapForPredictorScores[name] : 'and ' + nameMapForPredictorScores[name]}`).join(", &nbsp;")} scores are not available for this variant</div></td></tr>`
+            const missingScoresRow = `<tr><td class="four wide column"></td><td class="four wide column" style="vertical-align: top; white-space: nowrap" colspan="3"><div style="padding-top: 10px; display:inline-block">${missingScores.map((name, i) => `${i === 0 || i < missingScores.length - 1 ? nameMapForPredictorScores[name] : 'and ' + nameMapForPredictorScores[name]}`).join(", &nbsp;")} scores are not available for this variant <i class='question circle outline icon' data-position='right center' data-content='CADD, PhyloP, PolyPhen, REVEL, and SIFT scores are currently available only for variants that are present in gnomAD'/></div></td></tr>`
             tableRows.push(missingScoresRow)
         }
         $("#other-predictors-header").after(tableRows.join(""))
