@@ -1443,12 +1443,13 @@
                             if (Array.isArray(score)) {
                                 score = score[0]  // if its an array, get the first elegment
                             }
-                            if (otherPredictorScores[key1]) {
-                                if (Math.abs(otherPredictorScores[key1].score - score) > 0.001) {
-                                    console.log(`ERROR: Mismatch between myvariant.info and gnomAD scores for ${key1}: ${score} vs ${otherPredictorScores[key1].score}`)
+                            const otherPredictorName = key1.replace("revel", "revel_max")
+                            if (otherPredictorScores[otherPredictorName]) {
+                                if (Math.abs(otherPredictorScores[otherPredictorName].score - score) > 0.001) {
+                                    console.error(`Mismatch between myvariant.info and gnomAD scores for ${key1}: ${score} vs ${otherPredictorScores[otherPredictorName].score}`)
                                 }
                             } else {
-                                otherPredictorScores[key1] = {
+                                otherPredictorScores[otherPredictorName] = {
                                     'score': parseFloat(parseFloat(score).toFixed(3)),
                                 }
                             }
