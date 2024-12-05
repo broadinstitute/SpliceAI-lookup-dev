@@ -276,7 +276,7 @@
                     <ul>
                     <li>show <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/" target="_blank">PrimateAI-3D</a>, PromoterAI, <a href="https://www.science.org/doi/10.1126/science.adg7492" target="_blank">AlphaMissense</a> and other scores</li>
                     <li>provide a table with detailed SpliceAI scores for insertion variants whenever donor or acceptor gain is predicted to occurs within the inserted sequence itself. This addresses <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/84" target="_blank">issue #84</a>.</li>
-                    <li><b style="color:#880000">MAJOR BUG FIX:</b> Between April and November of 2024, <b>Pangolin</b> scores were incorrectly computed for ~28% of hg38 variants and ~5% of hg19 variants due to a bug related to multiple requests being processed in parallel. <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/81" target="_blank">This issue</a> has now been fixed.<br/>SpliceAI scores were not affected by this bug.</li>
+                    <li><b style="color:#880000">MAJOR BUG FIX:</b> Between April and November of 2024, <b>Pangolin</b> scores were incorrectly computed for ~28% of hg38 variants and ~5% of hg19 variants due to a bug related to multiple requests being processed in parallel. <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/81" target="_blank">This issue</a> has now been fixed.<br/>SpliceAI scores are fine and were not affected by this bug.</li>
                     </ul>
                     <a id="more-details3-button" href="#"
                        onclick="$('#more-details3').show();$('#more-details3-button').hide();">[show older updates]</a>
@@ -284,6 +284,7 @@
                         <b>November 3, 2024</b><br />
                         - added choice of Gencode <a href="https://genome.ucsc.edu/FAQ/FAQgenes.html#gencode" target="_blank">basic or comprehensive</a> transcripts<br />
                         - updated to Gencode v47 <br />
+                        <br/>
                         <b>June 20, 2024</b><br />
                         - fixed SpliceAI visualizations to clarify positions of predicted splicing changes. See <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/70" target="_blank">issue #70</a> for details. <br />
                         <br />
@@ -997,7 +998,7 @@
         return score >= 0.01 && position == 0 && ref.length == 1 && alt.length > 1 && scoresForInsertedBases && scoresForInsertedBases.length > 0
     }
 
-    const generateTableOfScoresForInsertedBases = (score, position, ref, alt, scoresForInsertedBases) => {
+    const generateTableOfScoresForInsertedBases = (modalId, score, position, ref, alt, scoresForInsertedBases) => {
         //warn about insertion variants that are predicted to cause a donor or acceptor gain somewhere within the inserted sequence.
         if (!considerInsertedBases(score, position, ref, alt, scoresForInsertedBases)) {
             return ""
@@ -1027,14 +1028,14 @@
                <table class='ui celled table'>
                 <thead>
                     <tr style='text-align:center'>
-                        <th>chrom</th>
+                        <th style='width:1%'>chrom</th>
                         <th>position</th>
-                        <th>REF</th>
-                        <th>ALT</th>
-                        <th>REF acceptor score</th>
-                        <th>REF donor score</th>
-                        <th>ALT acceptor score</th>
-                        <th>ALT donor score</th>
+                        <th style='width:1%'>REF</th>
+                        <th style='width:1%'>ALT</th>
+                        <th style='width:1%'>REF acceptor score</th>
+                        <th style='width:1%'>REF donor score</th>
+                        <th style='width:1%'>ALT acceptor score</th>
+                        <th style='width:1%'>ALT donor score</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1043,7 +1044,16 @@
             </table></div>`
         ).replace(/\n/g, "")
 
-        return `<i style="margin-left:10px; color:#000080" class="table icon score-table" data-position="right center" data-html="${table}"></i>`
+        //check if browser is chrome, safari or firefox
+        //const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor)
+        //const isSafari = /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor)
+        //const isFirefox = /Firefox/.test(navigator.userAgent)
+
+        const popupIcon = `<i style="margin-left:10px; color:#000000" class="table icon score-table" data-position="right center" data-html="${table}"></i>`
+        const modal = `<div id='modal-with-table${modalId}' class='ui modal'><i class='close icon'></i><div class='scrolling content'>${table}</div></div>`
+        const modalIcon = `<i id='table-icon${modalId}' style='margin-left:10px;color:#000080;cursor:pointer' class='window maximize outline icon'></i>`
+        return `${modalIcon}${modal} ${popupIcon}`
+
     }
 
     const updatePositionAccountingForInsertedBases = (scoreKey, score, position, ref, alt, scoresForInsertedBases) => {
@@ -1137,6 +1147,8 @@
 
         const transcriptCategories = {}
         const tableRows = []
+        const modalDialogIds = []
+        let transcriptIndex = 0
         for (const scores of apiResponseJson.scores) {
             const isPangolin = tool.toLowerCase() == "pangolin"
             const subRowCount = isPangolin ? 2 : 4
@@ -1207,10 +1219,19 @@
                 if (i > 0) {
                     row += `</tr><tr class="${resultRowClasses.join(' ')}">`
                 }
+
+                const modalDialogId = transcriptIndex*10 + i
+                const detailedScoresTable = generateTableOfScoresForInsertedBases(
+                    modalDialogId, scores[scoreKey], scores[positionKey], ref, alt, scores["SCORES_FOR_INSERTED_BASES"])
+
+                if (detailedScoresTable) {
+                    modalDialogIds.push(modalDialogId)
+                }
+
                 row += `<td>${label}</td>
                         <td ${getScoreStyle(scores[scoreKey])}>
                             ${formatScore(scores[scoreKey])}
-                            ${generateTableOfScoresForInsertedBases(scores[scoreKey], scores[positionKey], ref, alt, scores["SCORES_FOR_INSERTED_BASES"])}
+                            ${detailedScoresTable}
                          </td>
                         <td>${
                             (
@@ -1241,6 +1262,12 @@
             $("#transcript-button-table").hide()
         }
 
+        // initialize any modal dialogs
+        for (const modalDialogIndex of modalDialogIds) {
+            $(`#table-icon${modalDialogIndex}`).click(() => {
+                $(`#modal-with-table${modalDialogIndex}`).modal('show')
+            })
+        }
         $("#transcript-button-table").show()
         updateTranscriptButtons(Object.keys(transcriptCategories).length > 1 ? "main" : "all")
 
@@ -1260,7 +1287,7 @@
 
         //example variant: 1-55039916-G-A  (hg38)
 
-        const otherPredictorScores = []
+        const otherPredictorScores = {}
         const queryLookupTable = async () => {
             await Promise.all([
                 primateAndPromoterAiTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
@@ -1279,19 +1306,17 @@
                     const genePercentilethreshold = parseFloat(fields[5])
                     //console.log("PrimateAI-3D", percentile, genePercentilethreshold)
                     if (!isNaN(percentile)) {
-                        otherPredictorScores.push({
-                            'name': 'primateai3d',
+                        otherPredictorScores['primateai3d']  = {
                             'percentile': percentile,
                             'genePercentileThreshold': genePercentilethreshold,
-                        })
+                        }
                     }
                     const promoterAiScore = parseFloat(fields[6])
                     //console.log("PromoterAI", promoterAiScore)
                     if (!isNaN(promoterAiScore)) {
-                        otherPredictorScores.push({
-                            'name': 'promoterai',
+                        otherPredictorScores['promoterai'] = {
                             'score': promoterAiScore,
-                        })
+                        }
                     }
                 },),
 
@@ -1314,13 +1339,12 @@
 
                     //console.log("AlphaMissense", alphaMissenseScore)
                     if (!isNaN(alphaMissenseScore)) {
-                        otherPredictorScores.push({
-                            'name': 'alphamissense',
+                        otherPredictorScores['alphamissense'] = {
                             'score': alphaMissenseScore,
                             'transcriptId': transcriptId,
                             'proteinVariant': proteinVariant,
                             'consequence': consequence,
-                        })
+                        }
                     }
                 },)
             ])
@@ -1376,11 +1400,40 @@
                           if (predictor.id.startsWith("spliceai") || predictor.id.startsWith("pangolin")) {
                               return
                           }
-                          otherPredictorScores.push({
-                              'name': predictor.id,
+                          otherPredictorScores[predictor.id] = {
                               'score': parseFloat(parseFloat(predictor.value).toFixed(3)),
-                          })
+                          }
                       })
+                    }
+                }
+            }
+        }
+
+        // query myvariant.info based on the following example: curl -X POST "https://myvariant.info/v1/variant?ids=NM_001089.3%28ABCA3%29%3Ac.875A%3ET%20%28p.Glu292Val%29&fields=all&size=10" -H  "accept: */*" -H  "Content-Type: application/json" -d "{\"ids\":[\"chr6:g.152708291G>A\",\"chr7:g.55241707G>T\"]}"
+
+        const queryMyVariantInfo = async () => {
+            console.log("Querying myvariant.info")
+            const variantId = `${chrom}:g.${pos}${ref}>${alt}`
+            //add a data section to the body of the request
+            const response = await fetch(`https://myvariant.info/v1/variant/${encodeURIComponent(variantId)}?fields=dbnsfp&size=10&assembly=${genomeVersion == '37' ? 'hg19' : 'hg38'}`, {
+                "method": "GET",
+                "headers": {
+                    "accept": "*/*",
+                }
+            })
+
+            if (response.ok) {
+                const responseJson = await response.json()
+                //dbnsfp.revel.score
+                console.log("myvariant.info response:", responseJson)
+                if (responseJson.dbnsfp && responseJson.dbnsfp.revel && responseJson.dbnsfp.revel.score) {
+                    otherPredictorScores['revel_max'] = {
+                      'score': parseFloat(parseFloat(responseJson.dbnsfp.revel.score).toFixed(3)),
+                    }
+                }
+                if (responseJson.dbnsfp && responseJson.dbnsfp.cadd && responseJson.dbnsfp.cadd.phred) {
+                    otherPredictorScores['cadd'] = {
+                      'score': parseFloat(parseFloat(responseJson.dbnsfp.cadd.phred).toFixed(3)),
                     }
                 }
             }
@@ -1388,7 +1441,7 @@
 
 
         console.log("Querying lookup table and gnomAD")
-        await Promise.all([queryLookupTable(), queryGnomAD()]) //.map(p => p.catch(e => ({'error': e.message})))
+        await Promise.all([queryLookupTable(), queryGnomAD(), queryMyVariantInfo()]) //.map(p => p.catch(e => ({'error': e.message})))
 
         console.log("Other predictors scores:", otherPredictorScores)
         const tableRows = []
@@ -1406,13 +1459,13 @@
         ]
 
         const otherPredictorMap = {}
-        for (const otherPredictor of otherPredictorScores) {
-            otherPredictorMap[otherPredictor.name] = otherPredictor
+        for (const [otherPredictorName, otherPredictor] of Object.entries(otherPredictorScores)) {
+            otherPredictorMap[otherPredictorName] = otherPredictor
         }
 
         $(`#other-predictors-header`).nextAll().remove()
         let firstColumn = `
-            <td class="eight wide column" style="vertical-align: top" rowSpan="${otherPredictorScores.length}">
+            <td class="eight wide column" style="vertical-align: top" rowSpan="${Object.keys(otherPredictorScores).length}">
                 <div style="margin-right:10px; display: inline-block">${variant}</div><br class="only-large-screen"/>
                 ${normalizedVariantDiv}
             </td>`
@@ -1885,9 +1938,9 @@
                 "lastResort": "bottom left",
             })
             $(".question").css({"color": "#666666", "cursor": "pointer"})
-            $(".score-table").css({"color": "#000080", "cursor": "pointer"})
             $(".exclamation").css({"cursor": "pointer"})
-
+            $(".score-table").css({"color": "#000080", "cursor": "pointer"})
+            $(".ui.modal").modal()
 
             if (spliceaiResponseJson.error) {
                 showError(`${spliceaiResponseJson.error}`)
