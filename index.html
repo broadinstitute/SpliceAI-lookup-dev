@@ -7,7 +7,7 @@
         //}
 
         const baseApiUrl = {
-            "normalize":   "https://liftover-xwkwwwxdwq-uc.a.run.app",
+            "normalize": "https://liftover-xwkwwwxdwq-uc.a.run.app",
             "pangolin-37": "https://pangolin-37-xwkwwwxdwq-uc.a.run.app",
             "pangolin-38": "https://pangolin-38-xwkwwwxdwq-uc.a.run.app",
             "spliceai-37": "https://spliceai-37-xwkwwwxdwq-uc.a.run.app",
@@ -24,7 +24,7 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/underscore@1.12.0/underscore-min.js"></script>
-    <script type="text/javascript" src="https://broadinstitute.github.io/SpliceAI-lookup-dev/tabix-bundle.js"></script>
+    <script type="text/javascript" src="https://unpkg.com/@gmod/tabix@1.6.1/dist/tabix-bundle.js"></script>
     <script type="text/javascript" src="https://storage.googleapis.com/tgg-viewer/igv.js-bw2/dist/igv.min.js?version=2024-08-06"></script>
     <!-- script type="text/javascript" src="igv.min.js"></script -->
 
@@ -132,6 +132,41 @@
             }
         }
 
+        @media print {
+            /* Ensure background colors and images show */
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+            @page { 
+               size: landscape;
+            }
+
+            /* Avoid font changes */
+            body {
+                font-family: inherit !important;
+                font-size: inherit !important;
+            }
+
+            /* Prevent layout shifts */
+            html, body {
+                width: 100%;
+                height: auto;
+                overflow: visible;
+            }
+
+            /* Keep elements from breaking awkwardly */
+            .no-break {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+            }
+
+            /* Optional: Hide elements not needed in print */
+            .no-print {
+                display: none !important;
+            }   
+        }
     </style>
 </head>
 <body>
@@ -143,16 +178,20 @@
                 <div class="row">
                     <div class="twelve wide column">
                         <div style="padding:25px 0px">
-                            <div>
-                                <div style="display:inline-block; ">Enter a variant below to see its
-                                    <a href="https://pubmed.ncbi.nlm.nih.gov/30661751" target="_blank">SpliceAI</a>, 
-                                    <a href="https://github.com/tkzeng/Pangolin" target="_blank">Pangolin</a>, and other scores
+                            <div class="no-print">
+                                <div style="display:inline-block; ">Enter a variant below to see its &nbsp;
+                                    <span style="white-space: nowrap;"><a href="https://pubmed.ncbi.nlm.nih.gov/30661751" target="_blank">SpliceAI</a>  <a href='https://github.com/Illumina/SpliceAI' target='_blank'><i class='github icon'></i></a></span>, 
+                                    <span style="white-space: nowrap;"><a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02664-4" target="_blank">Pangolin</a>  <a href='https://github.com/tkzeng/Pangolin' target='_blank'><i class='github icon'></i></a></span>, 
+                                    <span style="white-space: nowrap;"><a href="https://www.science.org/doi/10.1126/science.ads7373" target="_blank">PromoterAI</a>  <a href='https://github.com/Illumina/PromoterAI' target='_blank'><i class='github icon'></i></a></span>,
+                                    <span style="white-space: nowrap;"><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/" target="_blank">PrimateAI-3D</a>  <a href='https://github.com/Illumina/PrimateAI-3D' target='_blank'><i class='github icon'></i></a></span>,</span><br />
+                                    <span style="white-space: nowrap;"><a href="https://www.science.org/doi/10.1126/science.adg7492" target="_blank">AlphaMissense</a>  <a href='https://github.com/google-deepmind/alphamissense' target='_blank'><i class='github icon'></i></a></span>
+                                    and other scores:
                                 </div>
                                 <a id="more-details1-button" href="#" style="float:right; padding-right:7px" onclick="$('#more-details1').show();$('#more-details1-button').hide();">[more details]</a>
                                 <div id="more-details1" style="display:none">
-                                  <br />
+                                    <br />
                                     <a href="https://github.com/illumina/SpliceAI" target="_blank">SpliceAI</a> is a copyrighted work by Illumina and is provided under GPLv3 and CC BY NC 4.0 licenses for academic and non-commercial use.
-				                    This web service is maintained by the <a href="https://the-tgg.org/" target="_blank">TGG</a> at the <a href="https://www.broadinstitute.org/" target="_blank">Broad Institute</a>.
+                                    This web service is maintained by the <a href="https://the-tgg.org/" target="_blank">TGG</a> at the <a href="https://www.broadinstitute.org/" target="_blank">Broad Institute</a>.
                                     It runs the SpliceAI and Pangolin splicing prediction models on user-specified variants and then displays the scores.<br />
                                     <br />
                                     For more information about SpliceAI, see <a href="https://doi.org/10.1016/j.cell.2018.12.015" target="_blank">Jaganathan et al, Cell 2019</a>
@@ -174,20 +213,21 @@
                                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/blob/master/README.md#local-install" target="_blank">source code</a>
                                     to set up your own local instance of the API server or just run the SpliceAI and Pangolin models directly.<br />
                                     <br />
+
                                 </div>
                             </div>
                             <br/>
-                            <div style="padding-left: 0px; color: gray">
+                            <div class="no-print" style="padding-left: 0px; color: gray">
                                 <table>
                                     <thead style="text-align: left"><tr><th style="padding-bottom: 20px;">Examples &nbsp; (on hg38):</th><th></th></tr></thead>
                                     <tbody>
+                                    <tr><td style="padding-right: 0px">NM_001089.3(ABCA3):c.875A>T (p.Glu292Val)</td></tr>
                                     <tr><td>chr8-140300616-T-G</td><td></td></tr>
-                                    <tr><td>6 &nbsp; 31740453 &nbsp; G &nbsp; T</td><td></td></tr>
                                     <tr>
-                                        <td style="padding-right: 0px">NM_001089.3(ABCA3):c.875A>T (p.Glu292Val)</td>
+                                        <td>6 &nbsp; 31740453 &nbsp; G &nbsp; T</td><td></td>
                                         <td style="padding-left: 0px; padding-right:7px;">
                                             <span class="only-large-screen">
-                                                <a id="more-details2-button" href="#" style="float:right;"
+                                                <a id="more-details2-button" href="#" style="float:right; white-space: nowrap"
                                                     onclick="$('.more-details2').show();$('#more-details2-button').hide();">[show more examples]</a>
                                             </span>
                                         </td>
@@ -239,8 +279,8 @@
                             </div>
                             <div class="ui stackable grid">
                                 <div class="row">
-                                    <div class="thirteen wide column">
-                                        <div class="field">
+                                    <div class="thirteen wide column" style="min-width: 600px !important">
+                                        <div class="field" style="display: inline-block; white-space: nowrap">
                                             <span style="display: inline-block; white-space: nowrap; padding-bottom:10px;"><b>Max distance:</b></span>
                                             <div class="ui input" style="padding-left:15px; padding-bottom:10px; padding-right:8px; width:100px">
                                                 <input id="max-distance-input" type="text" value="500" style="padding:7px 10px">
@@ -257,7 +297,7 @@
                                                data-content="Selecting this checkbox will add two extra columns to the results. These will contain the raw SpliceAI and Pangolin predictions for the reference haplotype and the alternate haplotype. The delta scores represent the difference between these reference and alternate scores."></i>
                                         </div>
                                     </div>
-                                    <div class="three wide column">
+                                    <div class="three wide column" style="padding-left: 0px;">
                                         <button id="submit-button" class="ui primary button" style="margin-bottom: 15px; margin-right:10px; float: right">Submit</button>
                                     </div>
                                 </div>
@@ -272,16 +312,30 @@
                 <div>
                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues" target="_blank">SpliceAI-lookup/issues</a>: issues or feature requests for this website<br />
                     <br/>
-                    <b>December 5, 2024</b>
+                    <b>December 14, 2025</b>
                     <br />
-                    - show <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/" target="_blank">PrimateAI-3D</a>, PromoterAI, <a href="https://www.science.org/doi/10.1126/science.adg7492" target="_blank">AlphaMissense</a> and other scores<br/>
-                    - provide a table with detailed SpliceAI scores for insertion variants whenever donor or acceptor gain is predicted to occurs within the inserted sequence itself. This addresses <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/84" target="_blank">issue #84</a>.<br/>
+                    - In the 'Other scores' section, only populate the 'Points' column for missense variants since the calibration was only done for missense<br/>
                     <br />
-                    <b style="color:#880000">MAJOR BUG FIX:</b> Between April and November of 2024, <b>Pangolin</b> scores were incorrectly computed for ~28% of hg38 variants and ~5% of hg19 variants due to a bug related to multiple requests being processed in parallel. This issue has now been fixed.<br/>SpliceAI scores were fine and were not affected by this bug.<br/>
-                    </br>
+                    <b>September 22, 2025</b>
+                    <br />
+                    - updated to Gencode v49 (was previously on v47)<br/>
+                    - added a new optional visualization track called<br/><b>"genes used for precomputed scores"</b>. It shows the Gencode v24 transcript models originally used by the SpliceAI authors to generate the precomputed SpliceAI score tables available from Illumina. This track can help explain some of the differences in scores between SpliceAI-lookup and these precomputed tables.<br/>
+                    <br />
                     <a id="more-details3-button" href="#"
                        onclick="$('#more-details3').show();$('#more-details3-button').hide();">[show older updates]</a>
                     <div id="more-details3" style="display:none">
+                        <b>June 27, 2025</b>
+                        <br />
+                        - added PromoterAI scores for promoters of all protein-coding transcripts in Gencode v39 (not just the canonical transcripts)<br/>
+                        - added PromoterAI scores for hg19<br/>
+                        <br />
+                        <b>December 5, 2024</b>
+                        <br />
+                        - added <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/" target="_blank">PrimateAI-3D</a>, <a href="https://www.science.org/doi/10.1126/science.ads7373">PromoterAI</a>, <a href="https://www.science.org/doi/10.1126/science.adg7492" target="_blank">AlphaMissense</a> and other scores<br/>
+                        - provided a table with detailed SpliceAI scores for insertion variants whenever donor or acceptor gain is predicted to occurs within the inserted sequence itself. This addresses <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues/84" target="_blank">issue #84</a>.<br/>
+                        <br />
+                        <b style="color:#880000">MAJOR BUG FIX:</b> Between April and November of 2024, <b>Pangolin</b> scores were incorrectly computed for ~28% of hg38 variants and ~5% of hg19 variants due to a bug related to multiple requests being processed in parallel. This issue has now been fixed.<br/>SpliceAI scores were fine and were not affected by this bug.<br/>
+                        </br>
                         <b>November 3, 2024</b><br />
                         - added choice of Gencode <a href="https://genome.ucsc.edu/FAQ/FAQgenes.html#gencode" target="_blank">basic or comprehensive</a> transcripts<br />
                         - updated to Gencode v47 <br />
@@ -486,19 +540,19 @@
                             </th>
                             <th class="table-header"><span style="white-space: nowrap">SpliceAI: precomputed scores
                                 <i class="question circle outline icon" data-position="right center"
-                                   data-content="These tracks summarize the original precomputed SpliceAI score tables made available by Illumina. They are only available for hg38."></i>
+                                   data-content="The 'gain' and 'loss' tracks visualize the original precomputed SpliceAI score tables made available by Illumina. Each precomputed score is shown as an arrow pointing from the genomic position of the variant to the position of the maximum delta score caused by that variant in each of the 4 categories (AG/DG/AL/DL). Clicking on the arrow shows a popup with additional details. The 'gain' tracks represent donor or acceptor gain scores above a certain threshold (0.5 or 0.2), while 'loss' tracks represent donor or acceptor loss scores. These tracks are only available for hg38. The 'precomputed score genes' track visualizes the Gencode v24 gene annotations used by Illumina when generating the precomputed score tables. Specifically, these gene models determined the transcript start and end coordinates as well as the transcript strand which are used to compute the pre-mRNA nucleotide sequence that is fed in to the neural net so it can make its predictions."></i>
                                 </span>
                             </th>
                             <th class="table-header"><span style="white-space: nowrap">Reference
                                 <i class="question circle outline icon" data-position="right center"
-                                   data-content="Miscellaneous reference tracks."></i>
+                                   data-content="Miscellaneous reference tracks"></i>
                                 </span>
                             </th>
                         </tr>
                         </thead>
                         <tr>
                             <td>
-                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-variant" checked><label>variant track</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-variant" checked><label>variant track</label></div><br />
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-ref-alt" checked><label>SpliceAI REF &amp; ALT scores</label></div>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-delta-scores" checked><label>SpliceAI &#916;&nbsp; scores</label></div>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-pangolin-delta-scores" checked><label>Pangolin &#916;&nbsp; scores</label></div>
@@ -508,6 +562,7 @@
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-fibroblasts"><label>fibroblasts</label></div>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-muscle"><label>muscle</label></div>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-lymphocytes"><label>LCLs</label></div>
+                                <br />
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-brain-cortex"><label>brain cortex</label></div>
                             </td>
                             <td>
@@ -515,6 +570,7 @@
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-fibroblasts-all"><label>fibroblasts</label></div>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-muscle-all"><label>muscle</label></div>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-lymphocytes-all"><label>LCLs</label></div>
+                                <br />
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gtex-brain-cortex-all"><label>brain cortex</label></div>
                             </td>
                             <td>
@@ -522,9 +578,12 @@
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-loss-0.5"><label>loss ≥ 0.5</label></div>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-gain-0.2"><label>gain ≥ 0.2</label></div>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-loss-0.2"><label>loss ≥ 0.2</label></div>
+                                <br />
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-spliceai-precomputed-score-genes"><label>genes used for precomputed scores</label></div>
                             </td>
                             <td>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-gencode-genes"><label>gencode <span id="gencode-version"></span> genes</label></div>
+                                <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-mane-genes"><label>MANE v1.4 genes</label></div>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-100-mer-mappability"><label>100-mer mappability</label></div>
                                 <div class="ui checkbox igv-track-checkbox"><input type="checkbox" name="igv-segdups"><label>segmental duplications</label></div>
                             </td>
@@ -548,7 +607,7 @@
 </div>
 
 <script>
-    const GENCODE_VERSION = "v47"
+	const GENCODE_VERSION = "v49"
 
     const VARIANT_RE = new RegExp(
         "^[\\s]*" +
@@ -761,7 +820,7 @@
 
     const helpTextForPredictorScores = {
         "primateai3d": (record) => `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are shown with a red background to indicate a 'likely deleterious' prediction.`,
-        "promoterai": (record) => `PromoterAI scores range from -1 to 1 with 0 meaning no activity. Negative values represent under-expression and positive values represent over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
+        "promoterai": (record) => `<a href='https://www.science.org/doi/10.1126/science.ads7373' target='_blank'>PromoterAI</a>  &nbsp; <a href='https://github.com/Illumina/PromoterAI' target='_blank'><i class='github square icon'></i></a> &nbsp; scores range from -1 to 1 with 0 meaning no activity. Negative values represent under-expression and positive values represent over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
         "cadd": (record) => computeHelpTextForPredictorScores("cadd", record),
         "revel_max": (record) => computeHelpTextForPredictorScores("revel_max", record),
         "sift_max": (record) => computeHelpTextForPredictorScores("sift_max", record),
@@ -778,6 +837,7 @@
         if (score == null) {
             return ""
         }
+
         return Math.abs(parseFloat(score)).toFixed(2)
     }
 
@@ -798,14 +858,15 @@
         } else {
             return ""
         }
+
         return `style='white-space:nowrap;background-color:${color};'`
     }
 
     const { TabixIndexedFile } = window.gmodTABIX
 
     const primateAndPromoterAiTableUrls = {
-        '37': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_3D.hg19.with_gene_thresholds.txt.gz',
-        '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_and_PromoterAI_scores.hg38.tsv.gz',
+        '37': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_and_PromoterAI_scores.hg19.20250627.tsv.gz',
+        '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_and_PromoterAI_scores.hg38.20250627.tsv.gz',
     }
     const primateAndPromoterAiTables = {
         '37': new TabixIndexedFile({ url: primateAndPromoterAiTableUrls['37'], tbiUrl: `${primateAndPromoterAiTableUrls['37']}.tbi` }),
@@ -917,7 +978,7 @@
             ref = matchedRegExp[4].toUpperCase()
             alt = matchedRegExp[5].toUpperCase()
 
-            result = {
+            const result = {
                 'variant': `${chrom}-${pos}-${ref}-${alt}`,
                 'consequence': variantConsequence,
             }
@@ -1113,13 +1174,13 @@
 
         variantConsequence = variantConsequence || ""
         const variantConsequenceDiv = variantConsequence ? `
-        <div display: inline-block>
-            <a href="https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html" class="small-link" target="_blank">
-            ${variantConsequence.replace(/_/g, ' ')}
-            </a>
-         </div>
-         <br class="only-large-screen"/>
-         ` : ""
+            <div display: inline-block>
+                <a href="https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html" class="small-link" target="_blank">
+                ${variantConsequence.replace(/_/g, ' ')}
+                </a>
+             </div>
+             <br class="only-large-screen"/>
+             ` : ""
 
         //sort transcripts
         apiResponseJson.scores = _(apiResponseJson.scores).sortBy((s) => (  //compute sort key
@@ -1178,7 +1239,7 @@
                     <br class="only-large-screen"/>
                     ${variantConsequenceDiv}
                     <a href="${getUCSCBrowserUrl(genomeVersion, chrom, pos)}" class="small-link" target="_blank">UCSC</a>,
-                    <a href="https://gnomad.broadinstitute.org/variant/${variant}?dataset=${gnomadVersion}" class="small-link" target="_blank">gnomAD</a>
+                    <a href="https://gnomad.broadinstitute.org/variant/${chrom}-${pos}-${ref}-${alt}?dataset=${gnomadVersion}" class="small-link" target="_blank">gnomAD</a>
                     <br class="only-large-screen"/>
 
                 </td>
@@ -1239,6 +1300,7 @@
                                 parseFloat(scores[ALT_scoreKey]) == 0
                             )? "" : updatePositionAccountingForInsertedBases(scoreKey, scores[scoreKey], scores[positionKey], ref, alt, scores["SCORES_FOR_INSERTED_BASES"])}
                         </td>`
+
                 if (showRefAltScoreColumns == "1") {
                     row += `<td class="ref-score-column">${formatScore(scores[REF_scoreKey])}</td>
                             <td class="alt-score-column">${formatScore(scores[ALT_scoreKey])}</td>`
@@ -1361,15 +1423,21 @@
               }
             }`
 
-            const response = await fetch("https://gnomad.broadinstitute.org/api", {
-                "method": "POST",
-                "headers": {
+            let response
+            try {
+                response = await fetch("https://gnomad.broadinstitute.org/api", {
+                    "method": "POST",
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    },
+                    "body": JSON.stringify({ query }),
+                }) //, { mode: 'no-cors' })
+            } catch (e) {
+                console.error("gnomAD query failed:", e)
+                return
+            }
 
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
-                "body": JSON.stringify({ query }),
-            }, { mode: 'no-cors' })
 
             if (response.ok) {
                 const responseJson = await response.json()
@@ -1392,7 +1460,7 @@
                           const predictorName = predictor.id
                           const score = parseFloat(parseFloat(predictor.value).toFixed(3))
                           if (otherPredictorScores[predictorName] && Math.abs(otherPredictorScores[predictorName].score - score) > 0.001) {
-                              console.error(`Mismatch between gnomAD and myvariant.info scores for ${predictorName}: ${score} vs ${otherPredictorScores[predictorName].score}`)
+                              console.warn(`Mismatch between gnomAD and myvariant.info scores for ${predictorName}: ${score} vs ${otherPredictorScores[predictorName].score}`)
                           }
                           otherPredictorScores[predictorName] = {
                               'score': score,
@@ -1407,12 +1475,18 @@
             console.log("Querying myvariant.info")
             const variantId = `${chrom}:g.${pos}${ref}>${alt}`
             //add a data section to the body of the request
-            const response = await fetch(`https://myvariant.info/v1/variant/${encodeURIComponent(variantId)}?fields=dbnsfp&size=10&assembly=${genomeVersion == '37' ? 'hg19' : 'hg38'}`, {
-                "method": "GET",
-                "headers": {
-                    "accept": "*/*",
-                }
-            })
+            let response
+            try {
+                response = await fetch(`https://myvariant.info/v1/variant/${encodeURIComponent(variantId)}?fields=dbnsfp&size=10&assembly=${genomeVersion == '37' ? 'hg19' : 'hg38'}`, {
+                    "method": "GET",
+                    "headers": {
+                        "accept": "*/*",
+                    }
+                })
+            } catch (e) {
+                console.error("myvariant.info query failed:", e)
+                return
+            }
 
             if (response.ok) {
                 const responseJson = await response.json()
@@ -1503,10 +1577,14 @@
                 }
             } else if (otherPredictorName in predictorScoreToPoints) {
                 if (otherPredictor) {
-                    row +=`<td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">${otherPredictor.score}</td>
-                        <td class="one wide column" style="vertical-align: top; text-align: right; white-space: nowrap; background-color: ${bgColor}">
-                            ${predictorScoreToPoints[otherPredictorName](otherPredictor)}&nbsp;${helpIcon}
-                        </td></tr>`
+                    row += `<td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">${otherPredictor.score}</td>`
+                    if (variantConsequence && variantConsequence.toLowerCase().includes("missense")) {
+                        row += `<td class="one wide column" style="vertical-align: top; text-align: right; white-space: nowrap; background-color: ${bgColor}">
+                                ${predictorScoreToPoints[otherPredictorName](otherPredictor)}&nbsp;${helpIcon}
+                            </td></tr>`
+                    } else {
+                        row += `<td class="one wide column" style="background-color: ${bgColor}"></td>`
+                    }
                     tableRows.push(row)
                     firstColumn = ""
                 } else {
@@ -1523,7 +1601,6 @@
             tableRows.push(missingScoresRow)
         }
         $("#other-predictors-header").after(tableRows.join(""))
-
     }
 
     const updateTranscriptButtons = (category) => {
@@ -1566,7 +1643,6 @@
                     }
                 }
             }
-            
         } else {
 
             // retrieve state from checkboxes
@@ -1574,8 +1650,8 @@
             for (const name of ["igv-variant", "igv-spliceai-ref-alt", "igv-spliceai-delta-scores", "igv-pangolin-delta-scores", "igv-gencode-genes"]) {
                 tracksToShow[name] = $(`input[name='${name}']`).prop("checked")
             }
-            for (const name of ["igv-100-mer-mappability", "igv-segdups"]) {
-                // these tracks are not available for hg38
+            for (const name of ["igv-100-mer-mappability", "igv-segdups", "igv-mane-genes"]) {
+                // these tracks are not available for hg37
                 $(`input[name='${name}']`).prop("checked", $(`input[name='${name}']`).prop("checked") && genomeVersion != "37")
                 $(`input[name='${name}']`).prop("disabled", genomeVersion == "37")
 
@@ -1592,6 +1668,9 @@
                     tracksToShow[name] = $(`input[name='${name}']`).prop("checked")
                 }
             }
+
+            tracksToShow[`igv-spliceai-precomputed-score-genes`] = $(`input[name='igv-spliceai-precomputed-score-genes']`).prop("checked")
+
             for (const tissue of ["blood", "fibroblasts", "muscle", "lymphocytes", "brain-cortex"]) {
                 // these tracks are not available for hg19
                 $(`input[name='igv-gtex-${tissue}']`).prop("checked", $(`input[name='igv-gtex-${tissue}']`).prop("checked") && genomeVersion != "37")
@@ -1769,8 +1848,36 @@
             })
         }
 
+        if (tracksToShow["igv-mane-genes"]) {
+            tracks.push({
+                name: "MANE v1.4",
+                format: "gtf",
+                url: "gs://tgg-viewer/ref/GRCh38/MANE_v1_4/MANE.GRCh38.v1.4.ensembl_genomic.sorted.gtf.gz",
+                indexURL: "gs://tgg-viewer/ref/GRCh38/MANE_v1_4/MANE.GRCh38.v1.4.ensembl_genomic.sorted.gtf.gz.tbi",
+                height: 100,
+            })
+        }
+
+        if (tracksToShow["igv-spliceai-precomputed-score-genes"]) {
+            const precomputedScoresGeneTrackPath = `gs://tgg-viewer/ref/GRCh${genomeVersion}/gencode_v24/gencode_v24_annotations.grch${genomeVersion}.bed.gz`
+
+            tracks.push({
+                name: `Genes used for precomputed scores`,
+                //format: 'bed',
+                url: `${precomputedScoresGeneTrackPath}?`,
+                indexURL: `${precomputedScoresGeneTrackPath}.tbi?`,
+                indexed: true,
+                searchable: true,
+                height: 350,
+                visibilityWindow: -1,
+                displayMode: 'EXPANDED',
+                color: 'rgb(76,171,225)',
+            })
+        }
+
+
         if (genomeVersion == "38") {
-            for (const minScore of [0.5, 0.2]) {   //0.2,  hide the >= 0.2 tracks for now
+            for (const minScore of [0.5, 0.2]) {
                 for (const splicePredictionType of ["loss", "gain"]) {
                     if (tracksToShow[`igv-spliceai-precomputed-${splicePredictionType}-${minScore}`]) {
                         tracks.push(
@@ -1912,11 +2019,12 @@
         updateVisualizationCheckboxes(false, genomeVersion)
 
         //start processing submit
-        $("#submit-button").addClass(["loading", "disabled"])
+        $("#submit-button").addClass("loading disabled")
         $("#response-box, #spliceai-table, #pangolin-table, #transcript-button-table, #error-box").hide()
         $("#error-box").html("")
 
         $(".ref-score-column, .alt-score-column").toggle(showRefAltColumns == "1")
+
 
         // make API calls
         try {
@@ -1925,7 +2033,7 @@
             const variantConsequence = normalizedVariantAndConsequence.consequence
 
 
-            let [spliceaiResponseJson, pangolinResponseJson, otherPreditorsResponseJson] = await Promise.all([
+            let [spliceaiResponseJson, pangolinResponseJson, otherPredictorsResponseJson] = await Promise.all([
                 generateSplicingResultsTable(normalizedVariant, variantConsequence, "SpliceAI", variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltColumns),
                 generateSplicingResultsTable(normalizedVariant, variantConsequence, "Pangolin", variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltColumns),
                 generateOtherPredictorsTable(normalizedVariant, variantConsequence, variant, genomeVersion),
@@ -1983,7 +2091,7 @@
         }
 
         //done processing submit
-        $("#submit-button").removeClass(["loading", "disabled"])
+        $("#submit-button").removeClass("loading disabled")
     }
 
     const applyUrlSettingsToFormElements = () => {
