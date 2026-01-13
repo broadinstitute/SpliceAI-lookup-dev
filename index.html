@@ -807,7 +807,7 @@
         const points = predictorScoreToPoints[predictor](record)
         const label = predictorPointsToLabel[points]
         const predictorLabel = nameMapForPredictorScores[predictor] || predictor
-        let helpText = `The ${record.score} ${nameMapForPredictorScores[predictor] || predictor} score is in the ${label} range and would count for ${points} points based on thresholds and points established in <a href='https://www.biorxiv.org/content/10.1101/2024.09.17.611902v1.full' target='_blank'>Bergquist et al. 2024</a> and <a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC9748256/' target='_blank'>Pejaver et al. 2022</a>`
+        let helpText = `The ${record.score} ${nameMapForPredictorScores[predictor] || predictor} score is in the ${label} range and would count for ${points} points based on thresholds and points established for missense variants in <a href='https://www.biorxiv.org/content/10.1101/2024.09.17.611902v1.full' target='_blank'>Bergquist et al. 2024</a> and <a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC9748256/' target='_blank'>Pejaver et al. 2022</a>`
         // generate a color legend as an html table:
         helpText += `<br /><br /><b>Legend:</b><br /><br />`
         helpText += `<table style='border: 1px !important; border-collapse: collapse;'>`
