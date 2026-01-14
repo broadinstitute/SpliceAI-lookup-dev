@@ -894,22 +894,26 @@
         $("#error-box").show()
     }
 
+    const ENSEMBL_TIMEOUT_MS = 45000  // 45 second timeout for Ensembl API calls
+
     const normalizeVariant = async (variant, genomeVersion) => {
         /* Convert the given variant to a standardized "{chrom}-{pos}-{ref}-{alt}" string using a regular expression, or
          * if that fails, assume the variant is in HGVS notation and try using the Ensembl hgvs API to convert it.
+         * If the Ensembl API fails or times out and we have a locally-parsed variant, fall back to using that.
          *
          * Args:
          *  variant (string): user input text
          *  genomeVersion (string): "37" or "38"
          *
          * Return:
-         *  string: the input variant reformatted as a "{chrom}-{pos}-{ref}-{alt}" string
+         *  object: {variant, consequence, usedFallback, fallbackReason}
          */
 
         const ensemblApiPrefix = `https://${genomeVersion == '37' ? 'grch37.' : ''}rest.ensembl.org/vep/human/hgvs/`
 
         let chrom, pos, ref, alt, variantConsequence
         let matchedRegExp = variant.match(VARIANT_RE)
+        const hasLocalParse = !!matchedRegExp  // remember if we could parse locally
         let ensemblApiUrl, ensemblApiResponse, ensemblApiResponseJson
         if (matchedRegExp) {
             // was able to parse the user input using a simple reg-exp
@@ -938,10 +942,25 @@
         // try calling the Ensembl API on the user input
         try {
             try {
-                ensemblApiResponse = await makeRequest(ensemblApiUrl + "?content-type=application/json&vcf_string=1")
+                ensemblApiResponse = await makeRequest(ensemblApiUrl + "?content-type=application/json&vcf_string=1", ENSEMBL_TIMEOUT_MS)
             } catch (e) {
                 console.error(e)
-                throw Error(`Ensembl API call failed: Unable to reach server`)
+                const errorMessage = e.message || e.toString()
+                // If we have a local parse, use it as fallback
+                if (hasLocalParse) {
+                    console.warn(`Ensembl API failed, using local parse as fallback: ${chrom}-${pos}-${ref}-${alt}`)
+                    return {
+                        'variant': `${chrom}-${pos}-${ref}-${alt}`,
+                        'consequence': null,
+                        'usedFallback': true,
+                        'fallbackReason': errorMessage.includes('timed out') ? 'Ensembl API timed out' : 'Ensembl API unavailable'
+                    }
+                }
+                // HGVS notation requires Ensembl - provide helpful error message
+                if (errorMessage.includes('timed out')) {
+                    throw Error(`Ensembl API timed out. Unable to process variants unless they are entered in "chrom:pos ref > alt" format.`)
+                }
+                throw Error(`Ensembl API call failed: ${errorMessage}`)
             }
 
             ensemblApiResponseJson = await ensemblApiResponse
@@ -988,6 +1007,16 @@
 
         } catch (e) {
             console.error(e)
+            // If we have a local parse and the error is from Ensembl response (not network), use fallback
+            if (hasLocalParse) {
+                console.warn(`Ensembl API error, using local parse as fallback: ${chrom}-${pos}-${ref}-${alt}`)
+                return {
+                    'variant': `${chrom}-${pos}-${ref}-${alt}`,
+                    'consequence': null,
+                    'usedFallback': true,
+                    'fallbackReason': `Ensembl API error: ${e.message || e}`
+                }
+            }
             throw new Error(e)
         }
 
@@ -1022,12 +1051,22 @@
         */
     }
 
-    const makeRequest = (url) => {
+    const makeRequest = (url, timeoutMs = null) => {
         const method = "GET"
-        return new Promise(async (resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest()
+            let timeoutId = null
+
+            if (timeoutMs) {
+                timeoutId = setTimeout(() => {
+                    xhr.abort()
+                    reject(new Error(`Request timed out after ${timeoutMs / 1000} seconds`))
+                }, timeoutMs)
+            }
+
             xhr.open(method, url)
             xhr.addEventListener("load", () => {
+                if (timeoutId) clearTimeout(timeoutId)
                 console.log("GET", url, xhr.status, xhr.statusText)
                 let response = {}
                 try {
@@ -1042,11 +1081,16 @@
                 resolve(response)
             })
             xhr.addEventListener("error", () => {
+                if (timeoutId) clearTimeout(timeoutId)
                 if (xhr.status == 0) {
                     reject("Unable to reach server")
                 } else {
                     reject(`${xhr.status}  ${xhr.statusText}`)
                 }
+            })
+            xhr.addEventListener("abort", () => {
+                if (timeoutId) clearTimeout(timeoutId)
+                // reject is already called by the timeout handler
             })
             //console.log('Sending request', method, url)
             xhr.send()
@@ -2032,6 +2076,10 @@
             const normalizedVariant = normalizedVariantAndConsequence.variant
             const variantConsequence = normalizedVariantAndConsequence.consequence
 
+            // Show warning if Ensembl API fallback was used
+            if (normalizedVariantAndConsequence.usedFallback) {
+                showError(`Note: ${normalizedVariantAndConsequence.fallbackReason}. VEP consequence is unavailable.`)
+            }
 
             let [spliceaiResponseJson, pangolinResponseJson, otherPredictorsResponseJson] = await Promise.all([
                 generateSplicingResultsTable(normalizedVariant, variantConsequence, "SpliceAI", variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltColumns),
