@@ -1253,9 +1253,12 @@
         const tableRows = []
         const modalDialogIds = []
         let transcriptIndex = 0
+        const sai10kPredictions = apiResponseJson.sai10kPredictions
         for (const scores of apiResponseJson.scores) {
             const isPangolin = tool.toLowerCase() == "pangolin"
-            const subRowCount = isPangolin ? 2 : 4
+            const isMainTranscriptForPredictions = !isPangolin && sai10kPredictions &&
+                sai10kPredictions.transcript_id === scores['t_id']
+            const subRowCount = isPangolin ? 2 : (isMainTranscriptForPredictions ? 5 : 4)
             const strand = scores['t_strand'] == "-" ? "minus" : "plus"
             const gnomadVersion = getGnomadDataVersion(genomeVersion)
             const isMainTranscript = scores['t_priority'] != "N" && (scores['t_priority'] != "C" || transcriptCategories["MS"] == undefined)
@@ -1351,6 +1354,64 @@
                 }
             }
             row += "</tr>"
+
+            // Add prediction row for the main transcript (SpliceAI only)
+            if (isMainTranscriptForPredictions) {
+                console.log("SAI-10k predictions:", sai10kPredictions)
+                const aberration = sai10kPredictions.aberration || {}
+                const frameshift = sai10kPredictions.frameshift || {}
+                const maxDeltaScore = aberration.max_delta_score
+                const aberrationType = aberration.aberration_type || ''
+                const confidence = aberration.confidence || ''
+                const frameshiftStatus = frameshift.frameshift
+                const affectsCoding = frameshift.affects_coding
+                const frameshiftDesc = frameshift.description || ''
+
+                // Helper to format integers with comma separators
+                const formatIntegers = (str) => str.replace(/\d+/g, (match) => parseInt(match).toLocaleString())
+
+                // Format the prediction display
+                let predictionText = ''
+
+                // Show max delta score if available
+                if (maxDeltaScore !== undefined && maxDeltaScore !== null) {
+                    const scoreColor = maxDeltaScore >= 0.8 ? '#c00' :
+                                      maxDeltaScore >= 0.5 ? '#b8860b' :
+                                      maxDeltaScore >= 0.2 ? '#080' : '#666'
+                    predictionText = `<b style="color: ${scoreColor}">Max Δ score: ${maxDeltaScore.toFixed(2)}</b>`
+
+                    if (aberrationType && aberrationType !== 'none' && aberrationType !== 'unknown') {
+                        const aberrationLabel = aberrationType.replace(/_/g, ' ')
+                        predictionText += ` — <b>${aberrationLabel}</b>`
+                    }
+
+                    if (confidence) {
+                        predictionText += ` <span style="color: #888;">(${confidence} confidence)</span>`
+                    }
+
+                    if (frameshiftDesc) {
+                        // Colorize frameshift status in description
+                        let coloredDesc = formatIntegers(frameshiftDesc)
+                        if (frameshiftStatus === true) {
+                            coloredDesc = coloredDesc.replace(/frameshift/gi, '<span style="color: #c00;">frameshift</span>')
+                        } else if (frameshiftStatus === false) {
+                            coloredDesc = coloredDesc.replace(/in-frame/gi, '<span style="color: #080;">in-frame</span>')
+                        }
+                        predictionText += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${coloredDesc}</span>`
+                    }
+                } else if (aberrationType === 'none') {
+                    predictionText = '<span style="color: #666;">No significant splice effect predicted</span>'
+                }
+
+                if (predictionText) {
+                    const colSpan = showRefAltScoreColumns == "1" ? 4 : 2
+                    row += `<tr class="${resultRowClasses.join(' ')}">
+                        <td style="vertical-align: top;"><b>SAI-10k prediction</b> <i class='question circle outline icon' data-position='right center'
+                            data-html="SAI-10k interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with ≥84% accuracy for pseudoexon and partial intron retention. <a href='https://pubmed.ncbi.nlm.nih.gov/37021934/' target='_blank'>Rowlands et al. 2023</a>"></i></td>
+                        <td colspan="${colSpan}">${predictionText}</td>
+                    </tr>`
+                }
+            }
 
             tableRows.push(row)
             transcriptIndex++
