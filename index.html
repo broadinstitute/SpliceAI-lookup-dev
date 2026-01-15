@@ -1389,6 +1389,16 @@
                         predictionText += ` <span style="color: #888;">(${confidence} confidence)</span>`
                     }
 
+                    // Show coding/non-coding status on first line
+                    const codingStatus = affectsCoding === true ? 'coding' : affectsCoding === false ? 'non-coding' : ''
+                    if (codingStatus) {
+                        const codingColor = affectsCoding === true ? '#e65c00' : '#7b68ee'
+                        predictionText += ` - <span style="color: ${codingColor};">${codingStatus}</span>`
+                    }
+
+                    const visualizeLink = `<a href="#" class="sai10k-visualize-link" style="margin-left: 10px;">visualize</a>`
+
+                    let secondLine = ''
                     if (frameshiftDesc) {
                         // Colorize frameshift status in description
                         let coloredDesc = formatIntegers(frameshiftDesc)
@@ -1397,8 +1407,11 @@
                         } else if (frameshiftStatus === false) {
                             coloredDesc = coloredDesc.replace(/in-frame/gi, '<span style="color: #080;">in-frame</span>')
                         }
-                        const visualizeLink = `<a href="#" class="sai10k-visualize-link" style="margin-left: 10px;">visualize</a>`
-                        predictionText += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${coloredDesc}${visualizeLink}</span>`
+                        secondLine = coloredDesc
+                    }
+
+                    if (secondLine) {
+                        predictionText += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${secondLine}${visualizeLink}</span>`
                     }
                 } else if (aberrationType === 'none') {
                     predictionText = '<span style="color: #666;">No significant splice effect predicted</span>'
