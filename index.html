@@ -1865,6 +1865,9 @@
         })
 
         if (tracksToShow["igv-variant"]) {
+            // For deletions, skip the anchor base by adding 1 to start
+            const isDeletion = variantRef.length > variantAlt.length
+            const variantStart = isDeletion ? variantPos : variantPos - 1
             tracks.push({
                 name: "Variant",
                 type: "vcf",
@@ -1874,7 +1877,7 @@
                     {
                         chr: chrom,   //see createVCFVariant function in the igv.js repo for the allowed fields
                         pos: variantPos,
-                        start: variantPos - 1,
+                        start: variantStart,
                         end: variantPos + variantRef.length - 1,
                         referenceAllele: variantRef,
                         alternateBases: variantAlt,
