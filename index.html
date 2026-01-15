@@ -1397,7 +1397,8 @@
                         } else if (frameshiftStatus === false) {
                             coloredDesc = coloredDesc.replace(/in-frame/gi, '<span style="color: #080;">in-frame</span>')
                         }
-                        predictionText += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${coloredDesc}</span>`
+                        const visualizeLink = `<a href="#" class="sai10k-visualize-link" style="margin-left: 10px;">visualize</a>`
+                        predictionText += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${coloredDesc}${visualizeLink}</span>`
                     }
                 } else if (aberrationType === 'none') {
                     predictionText = '<span style="color: #666;">No significant splice effect predicted</span>'
@@ -1435,6 +1436,19 @@
                 $(`#modal-with-table${modalDialogIndex}`).modal('show')
             })
         }
+
+        // Handle SAI-10k visualize link click
+        $(".sai10k-visualize-link").click(async (e) => {
+            e.preventDefault()
+            document.body.style.cursor = 'wait'
+            $("#show-igv-button").click()
+            // Wait for IGV to load, then scroll to bottom
+            setTimeout(() => {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+                document.body.style.cursor = 'default'
+            }, 1500)
+        })
+
         $("#transcript-button-table").show()
         updateTranscriptButtons(Object.keys(transcriptCategories).length > 1 ? "main" : "all")
 
