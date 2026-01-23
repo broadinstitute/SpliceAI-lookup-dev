@@ -1391,7 +1391,7 @@
 
             // Add prediction row for the main transcript (SpliceAI only)
             if (isMainTranscriptForPredictions) {
-                console.log("SAI-10k predictions:", sai10kPredictions)
+                console.log("SAI-10k-calc predictions:", sai10kPredictions)
                 const aberration = sai10kPredictions.aberration || {}
                 const frameshift = sai10kPredictions.frameshift || {}
                 const maxDeltaScore = aberration.max_delta_score
@@ -1454,8 +1454,8 @@
                 if (predictionText) {
                     const colSpan = showRefAltScoreColumns == "1" ? 4 : 2
                     row += `<tr class="${resultRowClasses.join(' ')}">
-                        <td style="vertical-align: top; white-space: nowrap"><b>SAI-10k prediction</b> <i class='question circle outline icon' data-position='right center'
-                            data-html="SAI-10k interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with ≥84% accuracy for pseudoexon and partial intron retention. <a href='https://pubmed.ncbi.nlm.nih.gov/37021934/' target='_blank'>Rowlands et al. 2023</a>"></i></td>
+                        <td style="vertical-align: top; white-space: nowrap"><b>SAI-10k-calc prediction</b> <i class='question circle outline icon' data-position='right center'
+                            data-html="SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with ≥84% accuracy for pseudoexon and partial intron retention. <a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>"></i></td>
                         <td colspan="${colSpan}" style="white-space: nowrap">${predictionText}</td>
                     </tr>`
                 }
@@ -1484,7 +1484,7 @@
             })
         }
 
-        // Handle SAI-10k visualize link click
+        // Handle SAI-10k-calc visualize link click
         $(".sai10k-visualize-link").click(async (e) => {
             e.preventDefault()
             document.body.style.cursor = 'wait'
