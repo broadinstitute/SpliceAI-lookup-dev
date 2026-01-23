@@ -2,6 +2,7 @@
     TODO:
     - add gencode version selector (v49, v39, v24)
     - increase gene track height based on how many transcripts are in the SpliceAI or Pangolin results
+    - add error message about max indel size
 -->
 <html>
 <head>
@@ -846,6 +847,34 @@
         return Math.abs(parseFloat(score)).toFixed(2)
     }
 
+    const truncateAllele = (allele, maxLength = 30) => {
+        if (allele.length <= maxLength) {
+            return allele
+        }
+        return `${allele.substring(0, maxLength)}...(${allele.length.toLocaleString()}bp)`
+    }
+
+    const formatVariantDisplay = (chrom, pos, ref, alt, maxLength = 30) => {
+        return `${chrom}:${pos} ${truncateAllele(ref, maxLength)} > ${truncateAllele(alt, maxLength)}`
+    }
+
+    const truncateVariantString = (variantStr, maxAlleleLength = 30) => {
+        // Try to parse and truncate variant in common formats
+        const patterns = [
+            /^(chr)?(\d+|[XYxy]|MT?)-(\d+)-([ACGTacgt]+)-([ACGTacgt]+)$/,  // chr1-12345-A-T
+            /^(chr)?(\d+|[XYxy]|MT?):(\d+)[: ]([ACGTacgt]+)[>\/]([ACGTacgt]+)$/,  // chr1:12345 A>T or chr1:12345:A:T
+        ]
+        for (const pattern of patterns) {
+            const match = variantStr.match(pattern)
+            if (match) {
+                const [, chrPrefix, chromNum, pos, ref, alt] = match
+                const chrom = (chrPrefix || '') + chromNum
+                return formatVariantDisplay(chrom, pos, ref, alt, maxAlleleLength)
+            }
+        }
+        return variantStr
+    }
+
     const getScoreStyle = (score) => {
         score = parseFloat(score)
 
@@ -1249,7 +1278,7 @@
         const normalizedVariantDiv = noDifferenceDueToNormalization ? "" :
             `<br class="only-large-screen"/>
              <div style="margin-left:5px;margin-right:10px; display: inline-block; color:#333333">
-                <i>⇒ ${chrom}:${pos} ${ref}&gt;${alt}</i>
+                <i>⇒ ${chrom}:${pos} ${truncateAllele(ref)} &gt; ${truncateAllele(alt)}</i>
              </div>
              <br class="only-large-screen"/>`
 
@@ -1286,7 +1315,7 @@
             $(`#${tool.toLowerCase()}-header`).nextAll().remove()
             let row = `<tr class="${resultRowClasses.join(' ')}">
                 <td rowspan="${subRowCount}" style="vertical-align: top">
-                    <div style="margin-right:10px; display: inline-block">${variant}</div><br class="only-large-screen"/>
+                    <div style="margin-right:10px; display: inline-block">${truncateVariantString(variant)}</div><br class="only-large-screen"/>
                     ${normalizedVariantDiv}
                     <br class="only-large-screen"/>
                     ${variantConsequenceDiv}
@@ -1425,9 +1454,9 @@
                 if (predictionText) {
                     const colSpan = showRefAltScoreColumns == "1" ? 4 : 2
                     row += `<tr class="${resultRowClasses.join(' ')}">
-                        <td style="vertical-align: top;"><b>SAI-10k prediction</b> <i class='question circle outline icon' data-position='right center'
+                        <td style="vertical-align: top; white-space: nowrap"><b>SAI-10k prediction</b> <i class='question circle outline icon' data-position='right center'
                             data-html="SAI-10k interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with ≥84% accuracy for pseudoexon and partial intron retention. <a href='https://pubmed.ncbi.nlm.nih.gov/37021934/' target='_blank'>Rowlands et al. 2023</a>"></i></td>
-                        <td colspan="${colSpan}">${predictionText}</td>
+                        <td colspan="${colSpan}" style="white-space: nowrap">${predictionText}</td>
                     </tr>`
                 }
             }
@@ -1664,7 +1693,7 @@
         const normalizedVariantDiv = noDifferenceDueToNormalization ? "" :
             `<br class="only-large-screen"/>
              <div style="margin-left:5px;margin-right:10px; display: inline-block; color:#333333">
-                <i>⇒ ${chrom}:${pos} ${ref}&gt;${alt}</i>
+                <i>⇒ ${chrom}:${pos} ${truncateAllele(ref)} &gt; ${truncateAllele(alt)}</i>
              </div>
              <br class="only-large-screen"/>`
 
@@ -1681,7 +1710,7 @@
         $(`#other-predictors-header`).nextAll().remove()
         let firstColumn = `
             <td class="eight wide column" style="vertical-align: top" rowSpan="${Object.keys(otherPredictorScores).length}">
-                <div style="margin-right:10px; display: inline-block">${variant}</div><br class="only-large-screen"/>
+                <div style="margin-right:10px; display: inline-block">${truncateVariantString(variant)}</div><br class="only-large-screen"/>
                 ${normalizedVariantDiv}
             </td>`
 
@@ -2150,6 +2179,10 @@
         // get user inputs from form elements
         const variant = $("#search-box").val().trim()
         if (!variant) return
+        if (variant.length > 10000) {
+            showError("Input cannot be larger than 10,000 characters")
+            return
+        }
         const genomeVersion = $("input[name='hg']:checked").val().trim()
         const basicOrComprehensive = $("input[name='gencode-gene-set']:checked").val().trim()
         const maxDistance = $("#max-distance-input").val().trim()
