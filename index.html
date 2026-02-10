@@ -992,7 +992,7 @@
                 }
                 // HGVS notation requires Ensembl - provide helpful error message
                 if (errorMessage.includes('timed out')) {
-                    throw Error(`Ensembl API timed out. Unable to process variants unless they are entered in "chrom:pos ref > alt" format.`)
+                    throw Error(`Ensembl API timed out. Please enter the variant in "chrom:pos ref > alt" format to work around this issue.`)
                 }
                 throw Error(`Ensembl API call failed: ${errorMessage}`)
             }
