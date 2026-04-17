@@ -928,7 +928,7 @@
         $("#error-box").show()
     }
 
-    const ENSEMBL_TIMEOUT_MS = 45000  // 45 second timeout for Ensembl API calls
+    const ENSEMBL_TIMEOUT_MS = 90000  // 90 second timeout for Ensembl API calls
 
     const normalizeVariant = async (variant, genomeVersion) => {
         /* Convert the given variant to a standardized "{chrom}-{pos}-{ref}-{alt}" string using a regular expression, or
@@ -1292,7 +1292,10 @@
             const isPangolin = tool.toLowerCase() == "pangolin"
             const isMainTranscriptForPredictions = !isPangolin && sai10kPredictions &&
                 sai10kPredictions.transcript_id === scores['t_id']
-            const subRowCount = isPangolin ? 2 : (isMainTranscriptForPredictions ? 5 : 4)
+            const sai10kAberrations = isMainTranscriptForPredictions
+                ? (sai10kPredictions.aberrations || [])
+                : []
+            const subRowCount = isPangolin ? 2 : (4 + sai10kAberrations.length)
             const strand = scores['t_strand'] == "-" ? "minus" : "plus"
             const gnomadVersion = getGnomadDataVersion(genomeVersion)
             const isMainTranscript = scores['t_priority'] != "N" && (scores['t_priority'] != "C" || transcriptCategories["MS"] == undefined)
@@ -1389,75 +1392,67 @@
             }
             row += "</tr>"
 
-            // Add prediction row for the main transcript (SpliceAI only)
-            if (isMainTranscriptForPredictions) {
+            // Add one row per SAI-10k-calc aberration (SpliceAI only, main transcript only)
+            if (sai10kAberrations.length > 0) {
                 console.log("SAI-10k-calc predictions:", sai10kPredictions)
-                const aberration = sai10kPredictions.aberration || {}
-                const frameshift = sai10kPredictions.frameshift || {}
-                const maxDeltaScore = aberration.max_delta_score
-                const aberrationType = aberration.aberration_type || ''
-                const confidence = aberration.confidence || ''
-                const frameshiftStatus = frameshift.frameshift
-                const affectsCoding = frameshift.affects_coding
-                const frameshiftDesc = frameshift.description || ''
-
-                // Helper to format integers with comma separators
                 const formatIntegers = (str) => str.replace(/\d+/g, (match) => parseInt(match).toLocaleString())
+                const colSpan = showRefAltScoreColumns == "1" ? 4 : 2
+                const tooltip = "SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with ≥84% accuracy for pseudoexon and partial intron retention. <a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>"
 
-                // Format the prediction display
-                let predictionText = ''
+                for (const [aberrationIndex, aberration] of sai10kAberrations.entries()) {
+                    const maxDeltaScore = aberration.max_delta_score
+                    const aberrationType = aberration.aberration_type || ''
+                    const frameshiftStatus = aberration.frameshift
+                    const affectsCoding = aberration.affects_coding
+                    const frameshiftDesc = aberration.frameshift_description || ''
 
-                // Show max delta score if available
-                if (maxDeltaScore !== undefined && maxDeltaScore !== null) {
-                    const scoreColor = maxDeltaScore >= 0.8 ? '#c00' :
-                                      maxDeltaScore >= 0.5 ? '#b8860b' :
-                                      maxDeltaScore >= 0.2 ? '#080' : '#666'
-                    predictionText = `<b style="color: ${scoreColor}">Max Δ score: ${maxDeltaScore.toFixed(2)}</b>`
+                    let predictionText = ''
+                    if (maxDeltaScore !== undefined && maxDeltaScore !== null) {
+                        const scoreColor = maxDeltaScore >= 0.8 ? '#c00' :
+                                          maxDeltaScore >= 0.5 ? '#b8860b' :
+                                          maxDeltaScore >= 0.2 ? '#080' : '#666'
+                        predictionText = `<b style="color: ${scoreColor}">Max Δ score: ${maxDeltaScore.toFixed(2)}</b>`
 
-                    if (aberrationType && aberrationType !== 'none' && aberrationType !== 'unknown') {
-                        const aberrationLabel = aberrationType.replace(/_/g, ' ')
-                        predictionText += ` — <b>${aberrationLabel}</b>`
-                    }
-
-                    if (confidence) {
-                        predictionText += ` <span style="color: #888;">(${confidence} confidence)</span>`
-                    }
-
-                    // Show coding/non-coding status on first line
-                    const codingStatus = affectsCoding === true ? 'coding' : affectsCoding === false ? 'non-coding' : ''
-                    if (codingStatus) {
-                        const codingColor = affectsCoding === true ? '#e65c00' : '#7b68ee'
-                        predictionText += ` - <span style="color: ${codingColor};">${codingStatus}</span>`
-                    }
-
-                    const visualizeLink = `<a href="#" class="sai10k-visualize-link" style="margin-left: 10px;">visualize</a>`
-
-                    let secondLine = ''
-                    if (frameshiftDesc) {
-                        // Colorize frameshift status in description
-                        let coloredDesc = formatIntegers(frameshiftDesc)
-                        if (frameshiftStatus === true) {
-                            coloredDesc = coloredDesc.replace(/frameshift/gi, '<span style="color: #c00;">frameshift</span>')
-                        } else if (frameshiftStatus === false) {
-                            coloredDesc = coloredDesc.replace(/in-frame/gi, '<span style="color: #080;">in-frame</span>')
+                        if (aberrationType && aberrationType !== 'unknown') {
+                            const aberrationLabel = aberrationType.replace(/_/g, ' ')
+                            predictionText += ` — <b>${aberrationLabel}</b>`
                         }
-                        secondLine = coloredDesc
+
+                        const codingStatus = affectsCoding === true ? 'coding' : affectsCoding === false ? 'non-coding' : ''
+                        if (codingStatus) {
+                            const codingColor = affectsCoding === true ? '#e65c00' : '#7b68ee'
+                            predictionText += ` - <span style="color: ${codingColor};">${codingStatus}</span>`
+                        }
+
+                        const visualizeLink = `<a href="#" class="sai10k-visualize-link" style="margin-left: 10px;">visualize</a>`
+
+                        let secondLine = ''
+                        if (frameshiftDesc) {
+                            let coloredDesc = formatIntegers(frameshiftDesc)
+                            if (frameshiftStatus === true) {
+                                coloredDesc = coloredDesc.replace(/frameshift/gi, '<span style="color: #c00;">frameshift</span>')
+                            } else if (frameshiftStatus === false) {
+                                coloredDesc = coloredDesc.replace(/in-frame/gi, '<span style="color: #080;">in-frame</span>')
+                            }
+                            secondLine = coloredDesc
+                        }
+
+                        if (secondLine) {
+                            predictionText += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${secondLine}${visualizeLink}</span>`
+                        }
                     }
 
-                    if (secondLine) {
-                        predictionText += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${secondLine}${visualizeLink}</span>`
+                    if (predictionText) {
+                        // Only the first aberration row shows the "SAI-10k-calc" label and tooltip;
+                        // subsequent rows (combinations) indent to make the grouping visual.
+                        const labelCell = aberrationIndex === 0
+                            ? `<b>SAI-10k-calc</b> <i class='question circle outline icon' data-position='right center' data-html="${tooltip}"></i>`
+                            : `<span style="color: #888; padding-left: 16px;">+ combination</span>`
+                        row += `<tr class="${resultRowClasses.join(' ')}">
+                            <td style="vertical-align: top; white-space: nowrap">${labelCell}</td>
+                            <td colspan="${colSpan}" style="white-space: nowrap">${predictionText}</td>
+                        </tr>`
                     }
-                } else if (aberrationType === 'none') {
-                    predictionText = '<span style="color: #666;">No significant splice effect predicted</span>'
-                }
-
-                if (predictionText) {
-                    const colSpan = showRefAltScoreColumns == "1" ? 4 : 2
-                    row += `<tr class="${resultRowClasses.join(' ')}">
-                        <td style="vertical-align: top; white-space: nowrap"><b>SAI-10k-calc</b> <i class='question circle outline icon' data-position='right center'
-                            data-html="SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with ≥84% accuracy for pseudoexon and partial intron retention. <a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>"></i></td>
-                        <td colspan="${colSpan}" style="white-space: nowrap">${predictionText}</td>
-                    </tr>`
                 }
             }
 
