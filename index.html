@@ -1295,7 +1295,8 @@
             const sai10kAberrations = isMainTranscriptForPredictions
                 ? (sai10kPredictions.aberrations || [])
                 : []
-            const subRowCount = isPangolin ? 2 : (4 + (sai10kAberrations.length > 0 ? 1 : 0))
+            const renderSai10k = sai10kAberrations.length > 0 && sai10kAberrations[0].max_delta_score != null
+            const subRowCount = isPangolin ? 2 : (4 + (renderSai10k ? 1 : 0))
             const strand = scores['t_strand'] == "-" ? "minus" : "plus"
             const gnomadVersion = getGnomadDataVersion(genomeVersion)
             const isMainTranscript = scores['t_priority'] != "N" && (scores['t_priority'] != "C" || transcriptCategories["MS"] == undefined)
@@ -1394,10 +1395,10 @@
 
             // SAI-10k-calc row (SpliceAI only, main transcript only).
             // All aberrations from one variant share the same max Δ score / delta type /
-            // confidence headline (enforced in sai10k_predictions.py:880-894), so render
-            // the headline once. N==1: existing single-row layout. N>1: headline on line 1
-            // followed by an indented bulleted list of the individual aberrations.
-            if (sai10kAberrations.length > 0) {
+            // confidence headline (enforced server-side in sai10k_predictions.py), so
+            // render the headline once. N==1: existing single-row layout. N>1: headline
+            // on line 1 followed by an indented bulleted list of the individual aberrations.
+            if (renderSai10k) {
                 console.log("SAI-10k-calc predictions:", sai10kPredictions)
                 const formatIntegers = (str) => str.replace(/\d+/g, (match) => parseInt(match).toLocaleString())
                 const colSpan = showRefAltScoreColumns == "1" ? 4 : 2
@@ -1421,37 +1422,38 @@
                 const deltaType = first.delta_type || ''
                 const confidence = first.confidence || ''
 
-                if (maxDeltaScore !== undefined && maxDeltaScore !== null) {
-                    const scoreColor = maxDeltaScore >= 0.8 ? '#c00' :
-                                      maxDeltaScore >= 0.5 ? '#b8860b' :
-                                      maxDeltaScore >= 0.2 ? '#080' : '#666'
-                    let headline = `<b style="color: ${scoreColor}">Max Δ score: ${maxDeltaScore.toFixed(2)}</b>`
-                    if (deltaType) headline += ` — <b>${deltaType}</b>`
-                    if (confidence) headline += ` <span style="color: #888;">(${confidence} confidence)</span>`
+                const scoreColor = maxDeltaScore >= 0.8 ? '#c00' :
+                                  maxDeltaScore >= 0.5 ? '#b8860b' :
+                                  maxDeltaScore >= 0.2 ? '#080' : '#666'
+                let headline = `<b style="color: ${scoreColor}">Max Δ score: ${maxDeltaScore.toFixed(2)}</b>`
+                if (deltaType) headline += ` — <b>${deltaType}</b>`
+                if (confidence) headline += ` <span style="color: #888;">(${confidence} confidence)</span>`
 
-                    let valueCell
-                    if (sai10kAberrations.length === 1) {
-                        valueCell = headline
-                        const desc = first.frameshift_description || ''
-                        if (desc) {
-                            valueCell += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${colorizeDesc(desc, first.frameshift)}${visualizeLink}</span>`
-                        }
-                    } else {
-                        // Single visualize link on the headline (all aberrations open the same IGV view).
-                        const headlineCell = headline + visualizeLink
-                        const items = sai10kAberrations
-                            .filter(ab => ab.frameshift_description)
-                            .map(ab => `<li style="margin: 2px 0;">${colorizeDesc(ab.frameshift_description, ab.frameshift)}</li>`)
-                            .join('')
-                        valueCell = headlineCell + `<ul style="display: block; margin: 2px 0 0 0; padding-left: 28px; color: #666; font-size: 10pt; list-style: disc;">${items}</ul>`
+                let valueCell
+                if (sai10kAberrations.length === 1) {
+                    valueCell = headline
+                    const desc = first.frameshift_description || ''
+                    if (desc) {
+                        valueCell += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${colorizeDesc(desc, first.frameshift)}${visualizeLink}</span>`
                     }
-
-                    const labelCell = `<b>SAI-10k-calc</b> <i class='question circle outline icon' data-position='right center' data-html="${tooltip}"></i>`
-                    row += `<tr class="${resultRowClasses.join(' ')}">
-                        <td style="vertical-align: top; white-space: nowrap">${labelCell}</td>
-                        <td colspan="${colSpan}" style="white-space: nowrap">${valueCell}</td>
-                    </tr>`
+                } else {
+                    // Single visualize link on the headline (all aberrations open the same IGV view).
+                    // Wrap the link in the same small-gray span used in the N==1 path so its size/color match.
+                    const items = sai10kAberrations
+                        .filter(ab => ab.frameshift_description)
+                        .map(ab => `<li style="margin: 2px 0;">${colorizeDesc(ab.frameshift_description, ab.frameshift)}</li>`)
+                        .join('')
+                    valueCell = headline + `<span style="color: #666; font-size: 10pt; margin-left: 5px;">${visualizeLink}</span>`
+                    if (items) {
+                        valueCell += `<ul style="margin: 2px 0 0 0; padding-left: 28px; color: #666; font-size: 10pt; list-style: disc;">${items}</ul>`
+                    }
                 }
+
+                const labelCell = `<b>SAI-10k-calc</b> <i class='question circle outline icon' data-position='right center' data-html="${tooltip}"></i>`
+                row += `<tr class="${resultRowClasses.join(' ')}">
+                    <td style="vertical-align: top; white-space: nowrap">${labelCell}</td>
+                    <td colspan="${colSpan}">${valueCell}</td>
+                </tr>`
             }
 
             tableRows.push(row)
