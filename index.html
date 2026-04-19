@@ -1443,7 +1443,7 @@
                             .filter(ab => ab.frameshift_description)
                             .map(ab => `<li style="margin: 2px 0;">${colorizeDesc(ab.frameshift_description, ab.frameshift)}</li>`)
                             .join('')
-                        valueCell = headlineCell + `<ul class="small-link" style="margin: 2px 0 0 0; padding-left: 28px; color: #666; list-style: disc;">${items}</ul>`
+                        valueCell = headlineCell + `<ul style="display: block; margin: 2px 0 0 0; padding-left: 28px; color: #666; font-size: 10pt; list-style: disc;">${items}</ul>`
                     }
 
                     const labelCell = `<b>SAI-10k-calc</b> <i class='question circle outline icon' data-position='right center' data-html="${tooltip}"></i>`
