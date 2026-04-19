@@ -1295,7 +1295,7 @@
             const sai10kAberrations = isMainTranscriptForPredictions
                 ? (sai10kPredictions.aberrations || [])
                 : []
-            const subRowCount = isPangolin ? 2 : (4 + sai10kAberrations.length)
+            const subRowCount = isPangolin ? 2 : (4 + (sai10kAberrations.length > 0 ? 1 : 0))
             const strand = scores['t_strand'] == "-" ? "minus" : "plus"
             const gnomadVersion = getGnomadDataVersion(genomeVersion)
             const isMainTranscript = scores['t_priority'] != "N" && (scores['t_priority'] != "C" || transcriptCategories["MS"] == undefined)
@@ -1392,65 +1392,65 @@
             }
             row += "</tr>"
 
-            // Add one row per SAI-10k-calc aberration (SpliceAI only, main transcript only)
+            // SAI-10k-calc row (SpliceAI only, main transcript only).
+            // All aberrations from one variant share the same max Δ score / delta type /
+            // confidence headline (enforced in sai10k_predictions.py:880-894), so render
+            // the headline once. N==1: existing single-row layout. N>1: headline on line 1
+            // followed by an indented bulleted list of the individual aberrations.
             if (sai10kAberrations.length > 0) {
                 console.log("SAI-10k-calc predictions:", sai10kPredictions)
                 const formatIntegers = (str) => str.replace(/\d+/g, (match) => parseInt(match).toLocaleString())
                 const colSpan = showRefAltScoreColumns == "1" ? 4 : 2
                 const tooltip = "SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with ≥84% accuracy for pseudoexon and partial intron retention. <a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>"
 
-                for (const [aberrationIndex, aberration] of sai10kAberrations.entries()) {
-                    const maxDeltaScore = aberration.max_delta_score
-                    const deltaType = aberration.delta_type || ''
-                    const confidence = aberration.confidence || ''
-                    const frameshiftStatus = aberration.frameshift
-                    const frameshiftDesc = aberration.frameshift_description || ''
+                const visualizeLink = `<a href="#" class="sai10k-visualize-link" style="margin-left: 10px;">visualize</a>`
+                const colorizeDesc = (desc, frameshiftStatus) => {
+                    let out = formatIntegers(desc)
+                    if (frameshiftStatus === true) {
+                        out = out.replace(/frameshift/gi, '<span style="color: #c00;">frameshift</span>')
+                    } else if (frameshiftStatus === false) {
+                        out = out.replace(/in-frame/gi, '<span style="color: #080;">in-frame</span>')
+                    } else {
+                        out = out.replace(/non-coding/gi, '<span style="color: #7b68ee;">non-coding</span>')
+                    }
+                    return out
+                }
 
-                    let predictionText = ''
-                    if (maxDeltaScore !== undefined && maxDeltaScore !== null) {
-                        const scoreColor = maxDeltaScore >= 0.8 ? '#c00' :
-                                          maxDeltaScore >= 0.5 ? '#b8860b' :
-                                          maxDeltaScore >= 0.2 ? '#080' : '#666'
-                        predictionText = `<b style="color: ${scoreColor}">Max Δ score: ${maxDeltaScore.toFixed(2)}</b>`
+                const first = sai10kAberrations[0]
+                const maxDeltaScore = first.max_delta_score
+                const deltaType = first.delta_type || ''
+                const confidence = first.confidence || ''
 
-                        if (deltaType) {
-                            predictionText += ` — <b>${deltaType}</b>`
+                if (maxDeltaScore !== undefined && maxDeltaScore !== null) {
+                    const scoreColor = maxDeltaScore >= 0.8 ? '#c00' :
+                                      maxDeltaScore >= 0.5 ? '#b8860b' :
+                                      maxDeltaScore >= 0.2 ? '#080' : '#666'
+                    let headline = `<b style="color: ${scoreColor}">Max Δ score: ${maxDeltaScore.toFixed(2)}</b>`
+                    if (deltaType) headline += ` — <b>${deltaType}</b>`
+                    if (confidence) headline += ` <span style="color: #888;">(${confidence} confidence)</span>`
+
+                    let valueCell
+                    if (sai10kAberrations.length === 1) {
+                        valueCell = headline
+                        const desc = first.frameshift_description || ''
+                        if (desc) {
+                            valueCell += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${colorizeDesc(desc, first.frameshift)}${visualizeLink}</span>`
                         }
-                        if (confidence) {
-                            predictionText += ` <span style="color: #888;">(${confidence} confidence)</span>`
-                        }
-
-                        const visualizeLink = `<a href="#" class="sai10k-visualize-link" style="margin-left: 10px;">visualize</a>`
-
-                        let secondLine = ''
-                        if (frameshiftDesc) {
-                            let coloredDesc = formatIntegers(frameshiftDesc)
-                            if (frameshiftStatus === true) {
-                                coloredDesc = coloredDesc.replace(/frameshift/gi, '<span style="color: #c00;">frameshift</span>')
-                            } else if (frameshiftStatus === false) {
-                                coloredDesc = coloredDesc.replace(/in-frame/gi, '<span style="color: #080;">in-frame</span>')
-                            } else {
-                                coloredDesc = coloredDesc.replace(/non-coding/gi, '<span style="color: #7b68ee;">non-coding</span>')
-                            }
-                            secondLine = coloredDesc
-                        }
-
-                        if (secondLine) {
-                            predictionText += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${secondLine}${visualizeLink}</span>`
-                        }
+                    } else {
+                        // Single visualize link on the headline (all aberrations open the same IGV view).
+                        const headlineCell = headline + visualizeLink
+                        const items = sai10kAberrations
+                            .filter(ab => ab.frameshift_description)
+                            .map(ab => `<li style="margin: 2px 0;">${colorizeDesc(ab.frameshift_description, ab.frameshift)}</li>`)
+                            .join('')
+                        valueCell = headlineCell + `<ul class="small-link" style="margin: 2px 0 0 0; padding-left: 28px; color: #666; list-style: disc;">${items}</ul>`
                     }
 
-                    if (predictionText) {
-                        // Only the first aberration row shows the "SAI-10k-calc" label and tooltip;
-                        // subsequent rows (combinations) indent to make the grouping visual.
-                        const labelCell = aberrationIndex === 0
-                            ? `<b>SAI-10k-calc</b> <i class='question circle outline icon' data-position='right center' data-html="${tooltip}"></i>`
-                            : `<span style="color: #888; padding-left: 16px;">+ combination</span>`
-                        row += `<tr class="${resultRowClasses.join(' ')}">
-                            <td style="vertical-align: top; white-space: nowrap">${labelCell}</td>
-                            <td colspan="${colSpan}" style="white-space: nowrap">${predictionText}</td>
-                        </tr>`
-                    }
+                    const labelCell = `<b>SAI-10k-calc</b> <i class='question circle outline icon' data-position='right center' data-html="${tooltip}"></i>`
+                    row += `<tr class="${resultRowClasses.join(' ')}">
+                        <td style="vertical-align: top; white-space: nowrap">${labelCell}</td>
+                        <td colspan="${colSpan}" style="white-space: nowrap">${valueCell}</td>
+                    </tr>`
                 }
             }
 
