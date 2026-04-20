@@ -1399,7 +1399,6 @@
             // render the headline once. N==1: existing single-row layout. N>1: headline
             // on line 1 followed by an indented bulleted list of the individual aberrations.
             if (renderSai10k) {
-                console.log("SAI-10k-calc predictions:", sai10kPredictions)
                 const formatIntegers = (str) => str.replace(/\d+/g, (match) => parseInt(match).toLocaleString())
                 const colSpan = showRefAltScoreColumns == "1" ? 4 : 2
                 const tooltip = "SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with ≥84% accuracy for pseudoexon and partial intron retention. <a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>"
@@ -1412,7 +1411,21 @@
                     } else if (frameshiftStatus === false) {
                         out = out.replace(/in-frame/gi, '<span style="color: #080;">in-frame</span>')
                     } else {
+                        // frameshift is null: non-coding, start/stop-codon-lost,
+                        // "coding" (increased_exon_inclusion), or a "size unclear" / "could
+                        // not be mapped" fallback. Replace the most specific strings first
+                        // ("start/stop codon lost") so they don't get partially masked by
+                        // later, more general replacements.
+                        out = out.replace(/start codon lost/gi, '<span style="color: #c00;">start codon lost</span>')
+                        out = out.replace(/stop codon lost/gi, '<span style="color: #c00;">stop codon lost</span>')
                         out = out.replace(/non-coding/gi, '<span style="color: #7b68ee;">non-coding</span>')
+                        // "coding" on increased_exon_inclusion. Negative lookahead avoids the "coding seq."
+                        // that appears inside size text; negative lookbehind avoids matching inside "non-coding".
+                        out = out.replace(/(?<!non-)\bcoding\b(?! seq\.)/gi, '<span style="color: #080;">coding</span>')
+                        // Fallbacks: "size unclear" / "could not be mapped" / bare "unknown"
+                        // (from increased_exon_inclusion when the associated exon can't be
+                        // located) — italicize as soft warning.
+                        out = out.replace(/(size unclear|could not be mapped|\bunknown\b)/gi, '<span style="color: #888; font-style: italic;">$1</span>')
                     }
                     return out
                 }
@@ -1422,9 +1435,12 @@
                 const deltaType = first.delta_type || ''
                 const confidence = first.confidence || ''
 
+                // Tiers match the server-side confidence bands (sai10k_predictions.py
+                // ~line 1014): high ≥ 0.8, moderate ≥ 0.5, low otherwise. The old tier
+                // at ≥ 0.2 (green) misleadingly implied "safe/in-frame" for what Python
+                // calls "low confidence".
                 const scoreColor = maxDeltaScore >= 0.8 ? '#c00' :
-                                  maxDeltaScore >= 0.5 ? '#b8860b' :
-                                  maxDeltaScore >= 0.2 ? '#080' : '#666'
+                                  maxDeltaScore >= 0.5 ? '#b8860b' : '#666'
                 let headline = `<b style="color: ${scoreColor}">Max Δ score: ${maxDeltaScore.toFixed(2)}</b>`
                 if (deltaType) headline += ` — <b>${deltaType}</b>`
                 if (confidence) headline += ` <span style="color: #888;">(${confidence} confidence)</span>`
