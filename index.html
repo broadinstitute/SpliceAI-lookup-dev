@@ -447,7 +447,7 @@
                                                                                  data-html="Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). In the SpliceAI paper, a detailed characterization is provided for 0.2 (high recall), 0.5 (recommended), and 0.8 (high precision) cutoffs. Consequently, scores of 0.2 or higher appear in <b style='color:#1fb839'>green</b>, 0.5 or higher appear in <b style='color:#FFCB1F'>yellow</b>, and 0.8 or higher appear in <b style='color:#FF0000'>red</b>."></i>
                             </th>
                             <th class="table-header" style="white-space: nowrap">position &nbsp; <i class='question circle outline icon'
-                                                                                data-content="For each variant, SpliceAI looks within a window (+/- 500bp by default) to see how the variant affects the probabily of different positions serving as splice acceptors or donors. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are to the left of the variant in genomic coords, regardless of transcript strand."></i>
+                                                                                data-content="For each variant, SpliceAI looks within a window (+/- 500bp by default) to see how the variant affects the probability of different positions serving as splice acceptors or donors. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are to the left of the variant in genomic coords, regardless of transcript strand."></i>
                             </th>
                             <th class="table-header ref-score-column" style="white-space: nowrap">
                                 REF score &nbsp; <i class='question circle outline icon'
@@ -492,7 +492,7 @@
                                                                                      data-html="Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). Pangolin does not recommend specific score thresholds; however, here scores of 0.2 or higher appear in <b style='color:#1fb839'>green</b>, 0.5 or higher appear in <b style='color:#FFCB1F'>yellow</b>, and 0.8 or higher appear in <b style='color:#FF0000'>red</b>."></i>
                                 </th>
                                 <th class="table-header" style="white-space: nowrap">position &nbsp; <i class='question circle outline icon'
-                                                                                    data-content="For each variant, Pangolin looks within a window (+/- 500bp by default) to see how the variant affects the probability of splicing occuring at different positions. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are upstream (5&#039;) of the variant, and positive are downstream (3&#039;) of the variant."></i>
+                                                                                    data-content="For each variant, Pangolin looks within a window (+/- 500bp by default) to see how the variant affects the probability of splicing occurring at different positions. The offsets in this column represent positions with the biggest change in probability within the window. Negative values are upstream (5&#039;) of the variant, and positive are downstream (3&#039;) of the variant."></i>
                                 </th>
                                 <th class="table-header ref-score-column" style="white-space: nowrap">
                                     REF score &nbsp; <i class='question circle outline icon'
@@ -813,7 +813,10 @@
         const points = predictorScoreToPoints[predictor](record)
         const label = predictorPointsToLabel[points]
         const predictorLabel = nameMapForPredictorScores[predictor] || predictor
-        let helpText = `The ${record.score} ${nameMapForPredictorScores[predictor] || predictor} score is in the ${label} range and would count for ${points} points based on thresholds and points established for missense variants in <a href='https://www.biorxiv.org/content/10.1101/2024.09.17.611902v1.full' target='_blank'>Bergquist et al. 2024</a> and <a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC9748256/' target='_blank'>Pejaver et al. 2022</a>`
+        // record.score comes from gnomAD / myvariant.info and ends up rendered as
+        // HTML inside a Semantic-UI data-html tooltip. Escape it to prevent XSS.
+        // nameMapForPredictorScores / label / points are code-controlled constants.
+        let helpText = `The ${escapeHtml(record.score)} ${nameMapForPredictorScores[predictor] || predictor} score is in the ${label} range and would count for ${points} points based on thresholds and points established for missense variants in <a href='https://www.biorxiv.org/content/10.1101/2024.09.17.611902v1.full' target='_blank'>Bergquist et al. 2024</a> and <a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC9748256/' target='_blank'>Pejaver et al. 2022</a>`
         // generate a color legend as an html table:
         helpText += `<br /><br /><b>Legend:</b><br /><br />`
         helpText += `<table style='border: 1px !important; border-collapse: collapse;'>`
@@ -838,6 +841,22 @@
 
     // store user settings at the time of the last 'submit', as well as the resulting responses from the server
     let lastGenomeVersion, lastSpliceaiResponseJson, lastPangolinResponseJson
+
+    // Escape HTML-unsafe characters in strings that are about to be interpolated
+    // into template literals and injected via jQuery .html() / .after() / data-html.
+    // Apply to every backend-supplied or user-supplied field (gene name, transcript
+    // id, gnomAD-returned strings, Ensembl response fields, error messages, etc.)
+    // to prevent XSS. For numbers/booleans (e.g. a parsed score) escaping is a
+    // harmless no-op.
+    const escapeHtml = (value) => {
+        if (value === null || value === undefined) return ""
+        return String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;")
+    }
 
     const formatScore = (score) => {
         if (score == null) {
@@ -924,8 +943,15 @@
     }
 
     const showError = (errorMessage) => {
-        $("#error-box").html( $("#error-box").html() + `<br />${errorMessage.toString()}<br />`)
-        $("#error-box").show()
+        // Error messages may include user-entered variant text and server-reflected
+        // strings (Ensembl, myvariant.info, our own API). Render as text nodes
+        // + explicit <br> elements instead of interpolating into an .html() string,
+        // so any HTML/JS in the message is neutralised.
+        const $box = $("#error-box")
+        $box.append(document.createElement("br"))
+        $box.append(document.createTextNode(errorMessage == null ? "" : String(errorMessage)))
+        $box.append(document.createElement("br"))
+        $box.show()
     }
 
     const ENSEMBL_TIMEOUT_MS = 90000  // 90 second timeout for Ensembl API calls
@@ -1016,14 +1042,14 @@
             }
 
             if (!ensemblApiResponseJson[0] || !ensemblApiResponseJson[0].vcf_string) {
-                throw new Error(`Unexpected response: ${ensemblApiResponseJson}`);
+                throw new Error(`Unexpected response: ${JSON.stringify(ensemblApiResponseJson)}`);
             }
 
             variant = ensemblApiResponseJson[0].vcf_string
             variantConsequence = ensemblApiResponseJson[0].most_severe_consequence
             matchedRegExp = variant.match(VARIANT_RE)
             if (!matchedRegExp) {
-                throw new Error(`Unexpected response: ${ensemblApiResponseJson}`)
+                throw new Error(`Unexpected response: ${JSON.stringify(ensemblApiResponseJson)}`)
             }
 
             chrom = matchedRegExp[2].toUpperCase()
@@ -1051,7 +1077,9 @@
                     'fallbackReason': `Ensembl API error: ${e.message || e}`
                 }
             }
-            throw new Error(e)
+            // Rethrow the original error; `new Error(e)` would wrap it again and
+            // produce user-visible "Error: Error: <msg>" strings.
+            throw e
         }
 
 
@@ -1149,11 +1177,15 @@
             const AA = parseFloat(scoreObj.AA)
             const AD = parseFloat(scoreObj.AD)
 
+            // This table HTML is later stored in a data-html attribute that
+            // Semantic-UI's popup renders via jQuery.html(), so any HTML in
+            // backend-supplied fields (chrom/pos/ref/alt) would execute.
+            // RA/RD/AA/AD are parseFloat-ed above so they're safe as numbers.
             tableRows.push(
-                `<tr><td>${scoreObj.chrom}</td>
-                     <td style='text-align:right'>${scoreObj.pos}</td>
-                     <td>${scoreObj.ref}</td>
-                     <td>${scoreObj.alt}</td>
+                `<tr><td>${escapeHtml(scoreObj.chrom)}</td>
+                     <td style='text-align:right'>${escapeHtml(scoreObj.pos)}</td>
+                     <td>${escapeHtml(scoreObj.ref)}</td>
+                     <td>${escapeHtml(scoreObj.alt)}</td>
                      <td ${getScoreStyle(RA)}>${RA}</td>
                      <td ${getScoreStyle(RD)}>${RD}</td>
                      <td ${getScoreStyle(AA)}>${AA}</td>
@@ -1234,7 +1266,12 @@
         const alt = variantTokens[3]
 
         const baseUrl = baseApiUrl[`${tool.toLowerCase()}-${genomeVersion}`]
-        const urlArgs = `hg=${genomeVersion}&bc=${basicOrComprehensive}&distance=${maxDistance}&mask=${mask}&variant=${chrom}-${pos}-${ref}-${alt}&raw=${variant}&variant_consequence=${variantConsequence}`
+        // encodeURIComponent every value so a '&', '#', or '=' in (e.g.) a
+        // user-entered variant or Ensembl-returned consequence string cannot
+        // inject extra query params or smuggle attacker-controlled strings
+        // through to response_json / into DOM sinks.
+        const enc = encodeURIComponent
+        const urlArgs = `hg=${enc(genomeVersion)}&bc=${enc(basicOrComprehensive)}&distance=${enc(maxDistance)}&mask=${enc(mask)}&variant=${enc(`${chrom}-${pos}-${ref}-${alt}`)}&raw=${enc(variant)}&variant_consequence=${enc(variantConsequence)}`
 
         let apiResponse
         try {
@@ -1254,7 +1291,7 @@
         const variantConsequenceDiv = variantConsequence ? `
             <div style="display: inline-block">
                 <a href="https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html" class="small-link" target="_blank">
-                ${variantConsequence.replace(/_/g, ' ')}
+                ${escapeHtml(variantConsequence.replace(/_/g, ' '))}
                 </a>
              </div>
              <br class="only-large-screen"/>
@@ -1300,7 +1337,7 @@
             const strand = scores['t_strand'] == "-" ? "minus" : "plus"
             const gnomadVersion = getGnomadDataVersion(genomeVersion)
             const isMainTranscript = scores['t_priority'] != "N" && (scores['t_priority'] != "C" || transcriptCategories["MS"] == undefined)
-            const refSeqLink = scores['t_refseq_ids']? `/ <a href="https://www.ncbi.nlm.nih.gov/search/all/?term=${scores['t_refseq_ids'][0]}" target="_blank">${scores['t_refseq_ids'][0]}</a>` : ""
+            const refSeqLink = scores['t_refseq_ids']? `/ <a href="https://www.ncbi.nlm.nih.gov/search/all/?term=${encodeURIComponent(scores['t_refseq_ids'][0])}" target="_blank">${escapeHtml(scores['t_refseq_ids'][0])}</a>` : ""
 
             transcriptCategories[scores['t_priority']] = true
 
@@ -1319,7 +1356,7 @@
             $(`#${tool.toLowerCase()}-header`).nextAll().remove()
             let row = `<tr class="${resultRowClasses.join(' ')}">
                 <td rowspan="${subRowCount}" style="vertical-align: top">
-                    <div style="margin-right:10px; display: inline-block">${truncateVariantString(variant)}</div><br class="only-large-screen"/>
+                    <div style="margin-right:10px; display: inline-block">${escapeHtml(truncateVariantString(variant))}</div><br class="only-large-screen"/>
                     ${normalizedVariantDiv}
                     <br class="only-large-screen"/>
                     ${variantConsequenceDiv}
@@ -1330,25 +1367,25 @@
                 </td>
                 <td rowspan="${subRowCount}" style="vertical-align: top">
                     <div style="margin-right:10px; display: inline-block">
-                        ${scores['g_name']}
+                        ${escapeHtml(scores['g_name'])}
                             <div class="small-link"> (
-                                <a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${scores['g_id'].split('.')[0]}" target="_blank">${scores['g_id']}</a>
-                                 / <a href="https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?t=${scores['t_id'].split('.')[0]}" target="_blank">${scores['t_id']}</a>
+                                <a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${encodeURIComponent(scores['g_id'].split('.')[0])}" target="_blank">${escapeHtml(scores['g_id'])}</a>
+                                 / <a href="https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?t=${encodeURIComponent(scores['t_id'].split('.')[0])}" target="_blank">${escapeHtml(scores['t_id'])}</a>
                                  ${refSeqLink})
                             </div><br />
                             <br class="only-large-screen" />
-                        <div class="small-link"><a href="https://www.gencodegenes.org/pages/biotypes.html" target="_blank">${scores['t_type'].replace(/_/g, " ")}</a></div>
+                        <div class="small-link"><a href="https://www.gencodegenes.org/pages/biotypes.html" target="_blank">${escapeHtml(scores['t_type'].replace(/_/g, " "))}</a></div>
                         <div class="small-link">${scores['t_priority'] != "N" ? TRANSCRIPT_PRIORITY_VIEW_LOOKUP[scores['t_priority']] : ""}</div>
-                        <div class="small-link"> (${strand} strand)</div>
+                        <div class="small-link"> (${escapeHtml(strand)} strand)</div>
                     </div><br class="only-large-screen" />
                     <br class="only-large-screen" />
-                    <a href="https://www.omim.org/search?search=${scores['g_name']}" class="small-link" target="_blank">OMIM</a>,
-                    <a href="https://gtexportal.org/home/gene/${scores['g_name']}" class="small-link" target="_blank">GTEx</a>,
-                    <a href="https://gnomad.broadinstitute.org/gene/${scores['g_name']}?dataset=${gnomadVersion}" class="small-link" target="_blank">gnomAD</a>,
-                    <a href="https://search.clinicalgenome.org/kb/genes?page=1&size=25&search=${scores['g_name']}" class="small-link" target="_blank">ClinGen</a>,
-                    <a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${scores['g_name']}" class="small-link" target="_blank">Ensembl</a>,
-                    <a href="https://www.deciphergenomics.org/gene/${scores['g_name']}" class="small-link" target="_blank">Decipher</a>,
-                    <a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=${scores['g_name']}" class="small-link" target="_blank">GeneCards</a>
+                    <a href="https://www.omim.org/search?search=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">OMIM</a>,
+                    <a href="https://gtexportal.org/home/gene/${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">GTEx</a>,
+                    <a href="https://gnomad.broadinstitute.org/gene/${encodeURIComponent(scores['g_name'])}?dataset=${encodeURIComponent(gnomadVersion)}" class="small-link" target="_blank">gnomAD</a>,
+                    <a href="https://search.clinicalgenome.org/kb/genes?page=1&size=25&search=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">ClinGen</a>,
+                    <a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">Ensembl</a>,
+                    <a href="https://www.deciphergenomics.org/gene/${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">Decipher</a>,
+                    <a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">GeneCards</a>
                 </td>`
 
             for (const [i, label, scoreKey, positionKey, REF_scoreKey, ALT_scoreKey] of (
@@ -1405,7 +1442,10 @@
 
                 const visualizeLink = `<a href="#" class="sai10k-visualize-link" style="margin-left: 10px;">visualize</a>`
                 const colorizeDesc = (desc, frameshiftStatus) => {
-                    let out = formatIntegers(desc)
+                    // Escape first so any HTML in the backend-supplied description is neutralised.
+                    // formatIntegers / the subsequent span-wrapping regexes are safe on escaped text
+                    // (they match ASCII words / digits that don't collide with HTML entities).
+                    let out = formatIntegers(escapeHtml(desc))
                     if (frameshiftStatus === true) {
                         out = out.replace(/frameshift/gi, '<span style="color: #c00;">frameshift</span>')
                     } else if (frameshiftStatus === false) {
@@ -1416,12 +1456,20 @@
                         // not be mapped" fallback. Replace the most specific strings first
                         // ("start/stop codon lost") so they don't get partially masked by
                         // later, more general replacements.
+                        // Temporarily mask "non-coding" with a placeholder so the bare "coding"
+                        // regex below doesn't match the "coding" inside "non-coding". A
+                        // negative-lookbehind regex literal like /(?<!non-)\bcoding\b/ would be
+                        // cleaner, but regex-literal lookbehind throws SyntaxError at script-parse
+                        // time on Safari < 16.4 (and older iOS WebViews) — breaking the whole page
+                        // for those users. Placeholder-swap avoids the lookbehind entirely.
+                        const NONCODING_PLACEHOLDER = '\x00NONCODING\x00'
+                        out = out.replace(/non-coding/gi, NONCODING_PLACEHOLDER)
                         out = out.replace(/start codon lost/gi, '<span style="color: #c00;">start codon lost</span>')
                         out = out.replace(/stop codon lost/gi, '<span style="color: #c00;">stop codon lost</span>')
-                        out = out.replace(/non-coding/gi, '<span style="color: #7b68ee;">non-coding</span>')
-                        // "coding" on increased_exon_inclusion. Negative lookahead avoids the "coding seq."
-                        // that appears inside size text; negative lookbehind avoids matching inside "non-coding".
-                        out = out.replace(/(?<!non-)\bcoding\b(?! seq\.)/gi, '<span style="color: #080;">coding</span>')
+                        // "coding" on increased_exon_inclusion. Negative lookahead avoids the
+                        // "coding seq." that appears inside size text.
+                        out = out.replace(/\bcoding\b(?! seq\.)/gi, '<span style="color: #080;">coding</span>')
+                        out = out.replace(new RegExp(NONCODING_PLACEHOLDER, 'g'), '<span style="color: #7b68ee;">non-coding</span>')
                         // Fallbacks: "size unclear" / "could not be mapped" / bare "unknown"
                         // (from increased_exon_inclusion when the associated exon can't be
                         // located) — italicize as soft warning.
@@ -1441,9 +1489,9 @@
                 // calls "low confidence".
                 const scoreColor = maxDeltaScore >= 0.8 ? '#c00' :
                                   maxDeltaScore >= 0.5 ? '#b8860b' : '#666'
-                let headline = `<b style="color: ${scoreColor}">Max Δ score: ${maxDeltaScore.toFixed(2)}</b>`
-                if (deltaType) headline += ` — <b>${deltaType}</b>`
-                if (confidence) headline += ` <span style="color: #888;">(${confidence} confidence)</span>`
+                let headline = `<b style="color: ${scoreColor}">Max Δ score: ${escapeHtml(maxDeltaScore.toFixed(2))}</b>`
+                if (deltaType) headline += ` — <b>${escapeHtml(deltaType)}</b>`
+                if (confidence) headline += ` <span style="color: #888;">(${escapeHtml(confidence)} confidence)</span>`
 
                 let valueCell
                 if (sai10kAberrations.length === 1) {
@@ -1721,7 +1769,7 @@
         $(`#other-predictors-header`).nextAll().remove()
         let firstColumn = `
             <td class="eight wide column" style="vertical-align: top" rowSpan="${Object.keys(otherPredictorScores).length}">
-                <div style="margin-right:10px; display: inline-block">${truncateVariantString(variant)}</div><br class="only-large-screen"/>
+                <div style="margin-right:10px; display: inline-block">${escapeHtml(truncateVariantString(variant))}</div><br class="only-large-screen"/>
                 ${normalizedVariantDiv}
             </td>`
 
@@ -1754,7 +1802,7 @@
                 }
             } else if (otherPredictorName in predictorScoreToPoints) {
                 if (otherPredictor) {
-                    row += `<td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">${otherPredictor.score}</td>`
+                    row += `<td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">${escapeHtml(otherPredictor.score)}</td>`
                     if (variantConsequence && variantConsequence.toLowerCase().includes("missense")) {
                         row += `<td class="one wide column" style="vertical-align: top; text-align: right; white-space: nowrap; background-color: ${bgColor}">
                                 ${predictorScoreToPoints[otherPredictorName](otherPredictor)}&nbsp;${helpIcon}
@@ -1784,11 +1832,14 @@
         $("#main-transcript-button, #all-transcript-button").removeClass("primary")
         $(`#${category}-transcript-button`).addClass("primary")
 
+        // Toggle both tools' result rows; the 'main-transcript' class is added
+        // to every row of the canonical transcript regardless of tool, so the
+        // same show/hide pattern applies to SpliceAI and Pangolin rows.
         if (category == "main") {
-            $(".spliceai-result-row").hide()
-            $(".spliceai-result-row.main-transcript").show()
+            $(".spliceai-result-row, .pangolin-result-row").hide()
+            $(".spliceai-result-row.main-transcript, .pangolin-result-row.main-transcript").show()
         } else if (category == "all") {
-            $(".spliceai-result-row").show()
+            $(".spliceai-result-row, .pangolin-result-row").show()
         }
     }
 
@@ -1888,7 +1939,7 @@
         const tracksToShow = updateVisualizationCheckboxes(false, genomeVersion)
 
         // log event
-        makeRequest(`${baseApiUrl['pangolin-37']}/log/show_igv?details=${encodeURIComponent(JSON.stringify(tracksToShow))}&hg=${genomeVersion}&distance=${apiResponseJson.distance}&mask=${apiResponseJson.mask}&variant=${apiResponseJson.variant}`)
+        makeRequest(`${baseApiUrl['pangolin-37']}/log/show_igv?details=${encodeURIComponent(JSON.stringify(tracksToShow))}&hg=${encodeURIComponent(genomeVersion)}&distance=${encodeURIComponent(apiResponseJson.distance)}&mask=${encodeURIComponent(apiResponseJson.mask)}&variant=${encodeURIComponent(apiResponseJson.variant)}`)
 
         let minPos = 1e9
         let maxPos = 0
@@ -1957,7 +2008,7 @@
                                     <span style="color:#05d0d2"><b>alternate sequence</b></span> (with the variant). <br />
                                     An <b>A</b> (acceptor) or <b>D</b> (donor) symbol is shown where SpliceAI predicts there to be a splice donor or acceptor with score ≥ 0.01. <br/>
                                     These symbols are shown up-side-down when the score for the alternate sequence is lower than the score for the reference sequence.
-                                    Numberical labels represent scores for the reference sequence. These predictions are based on the pre-mRNA sequence for transcript <br />
+                                    Numerical labels represent scores for the reference sequence. These predictions are based on the pre-mRNA sequence for transcript <br />
                                     <b>${spliceaiResponseJson.allNonZeroScoresTranscriptId}</b> (${spliceaiResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)
                                     within a +/- ${spliceaiResponseJson.distance}bp window around <b>${chrom}:${variantPos} ${variantRef}>${variantAlt}</b>.`,
                     height: 100,
