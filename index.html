@@ -86,6 +86,38 @@
             border-top: 1px solid rgba(34, 36, 38, .15);
         }
 
+        /* Collapse the double horizontal separator between #spliceai-table and #sai10k-table.
+           Two adjacent .ui.table elements each draw their own 1px border with a margin gap between them,
+           which reads as two stacked separator lines. Drop the gap + the duplicate top border so a single
+           1px line (the SpliceAI table's bottom border) remains. */
+        #spliceai-table {
+            margin-bottom: 0 !important;
+        }
+        #spliceai-table + #sai10k-table {
+            margin-top: 0 !important;
+            border-top: 0 !important;
+        }
+
+        /* Lock the first-column width so the SAI-10k "Output" column starts at the
+           same x-coordinate as the SpliceAI/Pangolin "Gene" column. Setting it on the
+           column-header th drives the whole column without colliding with rowspan'd
+           data cells. */
+        #spliceai-header > tr:nth-child(2) > th:first-child,
+        #pangolin-header > tr:nth-child(2) > th:first-child,
+        #sai10k-header > tr:nth-child(2) > th:first-child {
+            width: 30%;
+        }
+
+        /* Make the SAI-10k "visualize" column greedy: it absorbs all remaining
+           horizontal space so the Output column shrinks to fit its predictions
+           content, and the "visualize" link sits left-aligned immediately to the
+           right of the predictions. */
+        #sai10k-header > tr:nth-child(2) > th:nth-child(3),
+        #sai10k-table .sai10k-visualize-cell {
+            width: 100%;
+            text-align: left;
+        }
+
         table {
             font-size: 11pt !important;
             border-collapse: collapse !important;
@@ -460,6 +492,18 @@
                         </tr>
                         </thead>
                     </table>
+                    <table id="sai10k-table" class="ui stackable table">
+                        <thead id="sai10k-header">
+                            <tr>
+                                <th style="background-color:white" colspan="3">Predicted Splicing Consequences:</th>
+                            </tr>
+                            <tr>
+                                <th class="table-header">Method</th>
+                                <th class="table-header">Output</th>
+                                <th class="table-header"></th>
+                            </tr>
+                        </thead>
+                    </table>
                     <table id="transcript-button-table" class="ui stackable table" style="border: none !important">
                         <tbody>
                         <tr>
@@ -815,8 +859,8 @@
         const predictorLabel = nameMapForPredictorScores[predictor] || predictor
         // record.score comes from gnomAD / myvariant.info and ends up rendered as
         // HTML inside a Semantic-UI data-html tooltip. Escape it to prevent XSS.
-        // nameMapForPredictorScores / label / points are code-controlled constants.
-        let helpText = `The ${escapeHtml(record.score)} ${nameMapForPredictorScores[predictor] || predictor} score is in the ${label} range and would count for ${points} points based on thresholds and points established for missense variants in <a href='https://www.biorxiv.org/content/10.1101/2024.09.17.611902v1.full' target='_blank'>Bergquist et al. 2024</a> and <a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC9748256/' target='_blank'>Pejaver et al. 2022</a>`
+        // predictorLabel / label / points are code-controlled constants.
+        let helpText = `The ${escapeHtml(record.score)} ${predictorLabel} score is in the ${label} range and would count for ${points} points based on thresholds and points established for missense variants in <a href='https://www.biorxiv.org/content/10.1101/2024.09.17.611902v1.full' target='_blank'>Bergquist et al. 2024</a> and <a href='https://pmc.ncbi.nlm.nih.gov/articles/PMC9748256/' target='_blank'>Pejaver et al. 2022</a>`
         // generate a color legend as an html table:
         helpText += `<br /><br /><b>Legend:</b><br /><br />`
         helpText += `<table style='border: 1px !important; border-collapse: collapse;'>`
@@ -1324,16 +1368,9 @@
         const tableRows = []
         const modalDialogIds = []
         let transcriptIndex = 0
-        const sai10kPredictions = apiResponseJson.sai10kPredictions
         for (const scores of apiResponseJson.scores) {
             const isPangolin = tool.toLowerCase() == "pangolin"
-            const isMainTranscriptForPredictions = !isPangolin && sai10kPredictions &&
-                sai10kPredictions.transcript_id === scores['t_id']
-            const sai10kAberrations = isMainTranscriptForPredictions
-                ? (sai10kPredictions.aberrations || [])
-                : []
-            const renderSai10k = sai10kAberrations.length > 0 && sai10kAberrations[0].max_delta_score != null
-            const subRowCount = isPangolin ? 2 : (4 + (renderSai10k ? 1 : 0))
+            const subRowCount = isPangolin ? 2 : 4
             const strand = scores['t_strand'] == "-" ? "minus" : "plus"
             const gnomadVersion = getGnomadDataVersion(genomeVersion)
             const isMainTranscript = scores['t_priority'] != "N" && (scores['t_priority'] != "C" || transcriptCategories["MS"] == undefined)
@@ -1430,96 +1467,6 @@
             }
             row += "</tr>"
 
-            // SAI-10k-calc row (SpliceAI only, main transcript only).
-            // All aberrations from one variant share the same max Δ score / delta type /
-            // confidence headline (enforced server-side in sai10k_predictions.py), so
-            // render the headline once. N==1: existing single-row layout. N>1: headline
-            // on line 1 followed by an indented bulleted list of the individual aberrations.
-            if (renderSai10k) {
-                const formatIntegers = (str) => str.replace(/\d+/g, (match) => parseInt(match).toLocaleString())
-                const colSpan = showRefAltScoreColumns == "1" ? 4 : 2
-                const tooltip = "SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with ≥84% accuracy for pseudoexon and partial intron retention. <a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>"
-
-                const visualizeLink = `<a href="#" class="sai10k-visualize-link" style="margin-left: 10px;">visualize</a>`
-                const colorizeDesc = (desc, frameshiftStatus) => {
-                    // Escape first so any HTML in the backend-supplied description is neutralised.
-                    // formatIntegers / the subsequent span-wrapping regexes are safe on escaped text
-                    // (they match ASCII words / digits that don't collide with HTML entities).
-                    let out = formatIntegers(escapeHtml(desc))
-                    if (frameshiftStatus === true) {
-                        out = out.replace(/frameshift/gi, '<span style="color: #c00;">frameshift</span>')
-                    } else if (frameshiftStatus === false) {
-                        out = out.replace(/in-frame/gi, '<span style="color: #080;">in-frame</span>')
-                    } else {
-                        // frameshift is null: non-coding, start/stop-codon-lost,
-                        // "coding" (increased_exon_inclusion), or a "size unclear" / "could
-                        // not be mapped" fallback. Replace the most specific strings first
-                        // ("start/stop codon lost") so they don't get partially masked by
-                        // later, more general replacements.
-                        // Temporarily mask "non-coding" with a placeholder so the bare "coding"
-                        // regex below doesn't match the "coding" inside "non-coding". A
-                        // negative-lookbehind regex literal like /(?<!non-)\bcoding\b/ would be
-                        // cleaner, but regex-literal lookbehind throws SyntaxError at script-parse
-                        // time on Safari < 16.4 (and older iOS WebViews) — breaking the whole page
-                        // for those users. Placeholder-swap avoids the lookbehind entirely.
-                        const NONCODING_PLACEHOLDER = '\x00NONCODING\x00'
-                        out = out.replace(/non-coding/gi, NONCODING_PLACEHOLDER)
-                        out = out.replace(/start codon lost/gi, '<span style="color: #c00;">start codon lost</span>')
-                        out = out.replace(/stop codon lost/gi, '<span style="color: #c00;">stop codon lost</span>')
-                        // "coding" on increased_exon_inclusion. Negative lookahead avoids the
-                        // "coding seq." that appears inside size text.
-                        out = out.replace(/\bcoding\b(?! seq\.)/gi, '<span style="color: #080;">coding</span>')
-                        out = out.replace(new RegExp(NONCODING_PLACEHOLDER, 'g'), '<span style="color: #7b68ee;">non-coding</span>')
-                        // Fallbacks: "size unclear" / "could not be mapped" / bare "unknown"
-                        // (from increased_exon_inclusion when the associated exon can't be
-                        // located) — italicize as soft warning.
-                        out = out.replace(/(size unclear|could not be mapped|\bunknown\b)/gi, '<span style="color: #888; font-style: italic;">$1</span>')
-                    }
-                    return out
-                }
-
-                const first = sai10kAberrations[0]
-                const maxDeltaScore = first.max_delta_score
-                const deltaType = first.delta_type || ''
-                const confidence = first.confidence || ''
-
-                // Tiers match the server-side confidence bands (sai10k_predictions.py
-                // ~line 1014): high ≥ 0.8, moderate ≥ 0.5, low otherwise. The old tier
-                // at ≥ 0.2 (green) misleadingly implied "safe/in-frame" for what Python
-                // calls "low confidence".
-                const scoreColor = maxDeltaScore >= 0.8 ? '#c00' :
-                                  maxDeltaScore >= 0.5 ? '#b8860b' : '#666'
-                let headline = `<b style="color: ${scoreColor}">Max Δ score: ${escapeHtml(maxDeltaScore.toFixed(2))}</b>`
-                if (deltaType) headline += ` — <b>${escapeHtml(deltaType)}</b>`
-                if (confidence) headline += ` <span style="color: #888;">(${escapeHtml(confidence)} confidence)</span>`
-
-                let valueCell
-                if (sai10kAberrations.length === 1) {
-                    valueCell = headline
-                    const desc = first.frameshift_description || ''
-                    if (desc) {
-                        valueCell += `<br/><span class="small-link" style="color: #666; display: block; padding-left: 10px;">${colorizeDesc(desc, first.frameshift)}${visualizeLink}</span>`
-                    }
-                } else {
-                    // Single visualize link on the headline (all aberrations open the same IGV view).
-                    // Wrap the link in the same small-gray span used in the N==1 path so its size/color match.
-                    const items = sai10kAberrations
-                        .filter(ab => ab.frameshift_description)
-                        .map(ab => `<li style="margin: 2px 0;">${colorizeDesc(ab.frameshift_description, ab.frameshift)}</li>`)
-                        .join('')
-                    valueCell = headline + `<span style="color: #666; font-size: 10pt; margin-left: 5px;">${visualizeLink}</span>`
-                    if (items) {
-                        valueCell += `<ul style="margin: 2px 0 0 0; padding-left: 28px; color: #666; font-size: 10pt; list-style: disc;">${items}</ul>`
-                    }
-                }
-
-                const labelCell = `<b>SAI-10k-calc</b> <i class='question circle outline icon' data-position='right center' data-html="${tooltip}"></i>`
-                row += `<tr class="${resultRowClasses.join(' ')}">
-                    <td style="vertical-align: top; white-space: nowrap">${labelCell}</td>
-                    <td colspan="${colSpan}">${valueCell}</td>
-                </tr>`
-            }
-
             tableRows.push(row)
             transcriptIndex++
         }
@@ -1543,22 +1490,117 @@
             })
         }
 
-        // Handle SAI-10k-calc visualize link click
+        $("#transcript-button-table").show()
+        updateTranscriptButtons(Object.keys(transcriptCategories).length > 1 ? "main" : "all")
+
+        return apiResponseJson
+    }
+
+
+    const generateSai10kTable = (spliceaiResponseJson) => {
+        /* Render the SAI-10k-calc prediction row(s) into the "Predicted Splicing Consequences" table.
+         * Hidden when SpliceAI itself failed; shows a "no prediction available" placeholder when SpliceAI
+         * succeeded but no aberrations were predicted. */
+        $("#sai10k-header").nextAll().remove()
+
+        if (!spliceaiResponseJson || spliceaiResponseJson.error) {
+            $("#sai10k-table").hide()
+            return
+        }
+
+        const sai10kPredictions = spliceaiResponseJson.sai10kPredictions
+        const sai10kAberrations = sai10kPredictions ? (sai10kPredictions.aberrations || []) : []
+        const hasPrediction = sai10kAberrations.length > 0
+
+        const tooltip = "SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, whole/partial intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with &gt;81% accuracy for predicting pseudoexon, partial intron retention, and exon skipping (<a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>). Variants are processed using default thresholds. Max distance of 10,000 is recommended to capture whole intron retention and multi-exon skipping."
+        const labelCell = `<td style="vertical-align: top; white-space: nowrap"><b>SAI-10k-calc</b> <i class="question circle outline icon" data-position="right center" data-html="${tooltip}"></i></td>`
+
+        let valueCell, visualizeCell
+        if (!hasPrediction) {
+            valueCell = `<td style="color: #888; font-style: italic;">No predicted splicing aberration</td>`
+            visualizeCell = `<td class="sai10k-visualize-cell"></td>`
+        } else {
+            const formatIntegers = (str) => str.replace(/\d+/g, (match) => parseInt(match).toLocaleString())
+            const colorizeDesc = (desc, frameshiftStatus) => {
+                // Escape first so any HTML in the backend-supplied description is neutralised.
+                // formatIntegers / the subsequent span-wrapping regexes are safe on escaped text
+                // (they match ASCII words / digits that don't collide with HTML entities).
+                let out = formatIntegers(escapeHtml(desc))
+                if (frameshiftStatus === true) {
+                    out = out.replace(/frameshift/gi, '<span style="color: #c00;">frameshift</span>')
+                } else if (frameshiftStatus === false) {
+                    out = out.replace(/in-frame/gi, '<span style="color: #080;">in-frame</span>')
+                } else {
+                    // frameshift is null: non-coding, start/stop-codon-lost,
+                    // "coding" (increased_exon_inclusion), or a "size unclear" / "could
+                    // not be mapped" fallback. Replace the most specific strings first
+                    // ("start/stop codon lost") so they don't get partially masked by
+                    // later, more general replacements.
+                    // Temporarily mask "non-coding" with a placeholder so the bare "coding"
+                    // regex below doesn't match the "coding" inside "non-coding". A
+                    // negative-lookbehind regex literal like /(?<!non-)\bcoding\b/ would be
+                    // cleaner, but regex-literal lookbehind throws SyntaxError at script-parse
+                    // time on Safari < 16.4 (and older iOS WebViews) — breaking the whole page
+                    // for those users. Placeholder-swap avoids the lookbehind entirely.
+                    const NONCODING_PLACEHOLDER = '\x00NONCODING\x00'
+                    out = out.replace(/non-coding/gi, NONCODING_PLACEHOLDER)
+                    out = out.replace(/start codon lost/gi, '<span style="color: #c00;">start codon lost</span>')
+                    out = out.replace(/stop codon lost/gi, '<span style="color: #c00;">stop codon lost</span>')
+                    // "coding" on increased_exon_inclusion. Negative lookahead avoids the
+                    // "coding seq." that appears inside size text.
+                    out = out.replace(/\bcoding\b(?! seq\.)/gi, '<span style="color: #080;">coding</span>')
+                    out = out.replace(new RegExp(NONCODING_PLACEHOLDER, 'g'), '<span style="color: #7b68ee;">non-coding</span>')
+                    // Fallbacks: "size unclear" / "could not be mapped" / bare "unknown"
+                    // (from increased_exon_inclusion when the associated exon can't be
+                    // located) — italicize as soft warning.
+                    out = out.replace(/(size unclear|could not be mapped|\bunknown\b)/gi, '<span style="color: #888; font-style: italic;">$1</span>')
+                }
+                return out
+            }
+
+            const first = sai10kAberrations[0]
+
+            // Max Δ score is already shown in the SpliceAI scores table above; the
+            // "confidence" label is derived from SpliceAI score thresholds (not from
+            // SAI-10k-calc's own prediction accuracy); the delta_type column ("acceptor
+            // loss" etc.) is also already shown in the SpliceAI Δ-type column. We omit
+            // all three here to avoid redundant or misleading text.
+            let inner
+            if (sai10kAberrations.length === 1) {
+                const desc = first.frameshift_description || ''
+                inner = desc ? `<span style="color: #666;">${colorizeDesc(desc, first.frameshift)}</span>` : ''
+            } else {
+                // One visualize link covers all aberrations (they share an IGV view).
+                const items = sai10kAberrations
+                    .filter(ab => ab.frameshift_description)
+                    .map(ab => `<li style="margin: 2px 0;">${colorizeDesc(ab.frameshift_description, ab.frameshift)}</li>`)
+                    .join('')
+                inner = items
+                    ? `<ul style="margin: 0; padding-left: 28px; color: #666; list-style: disc;">${items}</ul>`
+                    : ''
+            }
+            valueCell = `<td style="white-space: nowrap">${inner}</td>`
+            visualizeCell = `<td class="sai10k-visualize-cell" style="vertical-align: top; white-space: nowrap"><a href="#" class="sai10k-visualize-link">visualize</a></td>`
+        }
+
+        $("#sai10k-header").after(`<tr>${labelCell}${valueCell}${visualizeCell}</tr>`)
+
+        // The page-wide popup() init runs before this function, so attach the popup to
+        // the SAI-10k-calc question icon now that the row has been injected.
+        $("#sai10k-table .question").popup({on: "click", lastResort: "bottom left"})
+            .css({color: "#666666", cursor: "pointer"})
+
         $(".sai10k-visualize-link").click(async (e) => {
             e.preventDefault()
             document.body.style.cursor = 'wait'
             $("#show-igv-button").click()
-            // Wait for IGV to load, then scroll to bottom
             setTimeout(() => {
                 window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
                 document.body.style.cursor = 'default'
             }, 1500)
         })
 
-        $("#transcript-button-table").show()
-        updateTranscriptButtons(Object.keys(transcriptCategories).length > 1 ? "main" : "all")
-
-        return apiResponseJson
+        $("#sai10k-table").show()
     }
 
 
@@ -1580,11 +1622,9 @@
                 primateAndPromoterAiTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
                     //console.log("Got line:", line)
                     const fields = line.split('\t')
-                    const lineChrom = fields[0]
                     const linePos = parseInt(fields[1])
                     const lineRef = fields[2]
                     const lineAlt = fields[3]
-                    //console.log("`Got scores`:", fields)
 
                     if (linePos != pos || lineRef != ref || lineAlt != alt) {
                         return
@@ -1608,13 +1648,10 @@
                 },),
 
                 alphaMissenseTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
-                    //console.log("Got line:", line)
                     const fields = line.split('\t')
-                    const lineChrom = fields[0]
                     const linePos = parseInt(fields[1])
                     const lineRef = fields[2]
                     const lineAlt = fields[3]
-                    //console.log("`Got scores`:", fields)
 
                     if (linePos != pos || lineRef != ref || lineAlt != alt) {
                         return
@@ -1761,11 +1798,6 @@
             "alphamissense", "cadd", "phylop", "polyphen_max", "primateai3d", "promoterai", "revel_max", "sift_max",
         ]
 
-        const otherPredictorMap = {}
-        for (const [otherPredictorName, otherPredictor] of Object.entries(otherPredictorScores)) {
-            otherPredictorMap[otherPredictorName] = otherPredictor
-        }
-
         $(`#other-predictors-header`).nextAll().remove()
         let firstColumn = `
             <td class="eight wide column" style="vertical-align: top" rowSpan="${Object.keys(otherPredictorScores).length}">
@@ -1778,7 +1810,7 @@
         const missingScores = []
         for (const otherPredictorName of otherPredictorNames) {
             const predictorLabel = nameMapForPredictorScores[otherPredictorName] || otherPredictorName
-            const otherPredictor = otherPredictorMap[otherPredictorName]
+            const otherPredictor = otherPredictorScores[otherPredictorName]
             const bgColor = otherPredictor && colorMapForPredictorScores[otherPredictorName] ? colorMapForPredictorScores[otherPredictorName](otherPredictor) : "#ffffff"
             const helpIcon = otherPredictor && helpTextForPredictorScores[otherPredictorName] ? `<i class='question circle outline icon' data-html="${helpTextForPredictorScores[otherPredictorName](otherPredictor)}"></i>` : ""
 
@@ -2255,8 +2287,20 @@
 
         //start processing submit
         $("#submit-button").addClass("loading disabled")
-        $("#response-box, #spliceai-table, #pangolin-table, #transcript-button-table, #error-box").hide()
+        $("#response-box, #spliceai-table, #pangolin-table, #sai10k-table, #transcript-button-table, #error-box").hide()
         $("#error-box").html("")
+
+        // Tear down any existing IGV browser so the next "Show" click rebuilds
+        // it from scratch with only the new variant's tracks. Without this,
+        // loadSessionObject() can leave tracks from prior variants in place,
+        // which manifests as duplicated/stale tracks across searches. Also
+        // hide the panel so the user has to re-click "Show" for the new variant.
+        if (window.igvBrowser) {
+            try { igv.removeBrowser(window.igvBrowser) } catch (e) { console.warn("igv.removeBrowser failed:", e) }
+            window.igvBrowser = null
+        }
+        $("#igv-table, #igv-div").hide()
+        $("#show-igv-button").text("Show")
 
         $(".ref-score-column, .alt-score-column").toggle(showRefAltColumns == "1")
 
@@ -2301,8 +2345,13 @@
                 spliceaiResponseJson = null
                 $("#spliceai-table, #transcript-button-table").hide()
             } else {
+                if (spliceaiResponseJson.sai10kPredictionsError) {
+                    showError(`SAI-10k predictions failed: ${spliceaiResponseJson.sai10kPredictionsError}`)
+                }
                 $("#spliceai-table, #transcript-button-table").show()
             }
+
+            generateSai10kTable(spliceaiResponseJson)
 
             if (pangolinResponseJson.error) {
                 showError(`${pangolinResponseJson.error}`)
@@ -2370,29 +2419,18 @@
             $(`input[name='show-ref-alt']`).prop("checked", showRefAltColumnsFromUrl == "1")
         }
 
-        //update the variant input box last and trigger a search
+        //update the variant input box last and (unless `nosubmit=1` is set in
+        //the hash) trigger a search. The `nosubmit=1` knob exists so UI tests
+        //that only want to verify form-state restoration don't depend on a
+        //full backend round-trip — see test_url_hash_restores_form_state.
         const variantFromUrl = $.urlParam('variant')
         if (variantFromUrl) {
             $("#search-box").val(variantFromUrl)
-            $("#submit-button").click()
+            if ($.urlParam('nosubmit') !== "1") {
+                $("#submit-button").click()
+            }
         }
     }
-
-    /*
-    const toggleRefAltScoreColumns = () => {
-        const currentText = $("#toggle-ref-alt-scores-button").html()
-
-        if (currentText.match(/Show/i)) {
-            $(".ref-alt-score-column").show()
-            $("#toggle-ref-alt-scores-button").removeClass('primary')
-            $("#toggle-ref-alt-scores-button").html('Hide REF & ALT Scores')
-        } else {
-            $(".ref-alt-score-column").hide()
-            $("#toggle-ref-alt-scores-button").addClass('primary')
-            $("#toggle-ref-alt-scores-button").html('Show REF & ALT Scores')
-        }
-    }
-    */
 
     // define function for parsing url parameters like ?variant=chr1-1234567-T-G
     $.urlParam = (name) => {
