@@ -14,10 +14,10 @@
 
         const baseApiUrl = {
             "normalize": "https://liftover-xwkwwwxdwq-uc.a.run.app",
-            "pangolin-37": "https://pangolin-37-xwkwwwxdwq-uc.a.run.app",
-            "pangolin-38": "https://pangolin-38-xwkwwwxdwq-uc.a.run.app",
-            "spliceai-37": "https://spliceai-37-xwkwwwxdwq-uc.a.run.app",
-            "spliceai-38": "https://spliceai-38-xwkwwwxdwq-uc.a.run.app",
+            "pangolin-37": "https://dev---pangolin-37-xwkwwwxdwq-uc.a.run.app",
+            "pangolin-38": "https://dev---pangolin-38-xwkwwwxdwq-uc.a.run.app",
+            "spliceai-37": "https://dev---spliceai-37-xwkwwwxdwq-uc.a.run.app",
+            "spliceai-38": "https://dev---spliceai-38-xwkwwwxdwq-uc.a.run.app",
         }
 
         //console.log("Using SpliceAI API url:", baseApiUrl)
@@ -1892,8 +1892,18 @@
 
             // if there are tracksToShow in local storage, overwrite defaults with those settings
             const fromStorage = localStorage.getItem("tracksToShow")
+            let fromStorageJson = null
             if (fromStorage) {
-                const fromStorageJson = JSON.parse(fromStorage)
+                try {
+                    fromStorageJson = JSON.parse(fromStorage)
+                } catch (e) {
+                    // Corrupted entry (partial write, schema drift, manual edit).
+                    // Drop it so the next save self-heals; fall back to defaults.
+                    console.warn("Could not parse tracksToShow from localStorage; resetting:", e)
+                    localStorage.removeItem("tracksToShow")
+                }
+            }
+            if (fromStorageJson) {
                 for (const key of Object.keys(fromStorageJson)) {
                     tracksToShow[key] = fromStorageJson[key]
                     try {
@@ -1973,8 +1983,8 @@
         // log event
         makeRequest(`${baseApiUrl['pangolin-37']}/log/show_igv?details=${encodeURIComponent(JSON.stringify(tracksToShow))}&hg=${encodeURIComponent(genomeVersion)}&distance=${encodeURIComponent(apiResponseJson.distance)}&mask=${encodeURIComponent(apiResponseJson.mask)}&variant=${encodeURIComponent(apiResponseJson.variant)}`)
 
-        let minPos = 1e9
-        let maxPos = 0
+        let minPos = null
+        let maxPos = null
         for (const apiResponse of [spliceaiResponseJson, pangolinResponseJson]) {
             if (!apiResponse) {
                 continue
@@ -1986,9 +1996,17 @@
                 scores["chr"] = chrom
                 scores["start"] = scores["pos"]
                 scores["end"] = scores["pos"]
-                minPos = Math.min(minPos, scores["pos"])
-                maxPos = Math.max(maxPos, scores["pos"])
+                minPos = (minPos === null) ? scores["pos"] : Math.min(minPos, scores["pos"])
+                maxPos = (maxPos === null) ? scores["pos"] : Math.max(maxPos, scores["pos"])
             }
+        }
+        // Fall back to the variant position if both responses had no non-zero
+        // scores (empty array bypasses the apiResponse.allNonZeroScores guard).
+        // Without this, the locus formula below would yield a reversed-range
+        // sentinel string and IGV would fail to render.
+        if (minPos === null || maxPos === null) {
+            minPos = variantPos
+            maxPos = variantPos
         }
 
         // specify IGV tracks and the data to display in them
@@ -2435,7 +2453,7 @@
     // define function for parsing url parameters like ?variant=chr1-1234567-T-G
     $.urlParam = (name) => {
         const results = new RegExp('[\?&#]?' + name + '=([^&#]*)').exec(window.location.hash);
-        return (results !== null) ? decodeURIComponent(results[1]) || 0 : false;
+        return (results !== null) ? decodeURIComponent(results[1]) || "" : false;
     }
 
     $(document).ready(() => {
