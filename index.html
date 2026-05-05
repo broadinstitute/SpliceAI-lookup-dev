@@ -1581,7 +1581,7 @@
                     .map(ab => `<li style="margin: 2px 0;">${colorizeDesc(ab.frameshift_description, ab.frameshift)}</li>`)
                     .join('')
                 inner = items
-                    ? `<ul style="margin: 0; padding-left: 28px; color: #666; list-style: disc;">${items}</ul>`
+                    ? `<ul style="margin: 0; padding-left: 0; color: #666; list-style: disc inside;">${items}</ul>`
                     : ''
             }
             valueCell = `<td style="white-space: nowrap">${inner}</td>`
