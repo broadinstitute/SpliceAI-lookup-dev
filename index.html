@@ -86,15 +86,16 @@
             border-top: 1px solid rgba(34, 36, 38, .15);
         }
 
-        /* Collapse the double horizontal separator between #spliceai-table and #sai10k-table.
-           Two adjacent .ui.table elements each draw their own 1px border with a margin gap between them,
-           which reads as two stacked separator lines. Drop the gap + the duplicate top border so a single
-           1px line (the SpliceAI table's bottom border) remains. */
-        #spliceai-table {
-            margin-bottom: 0 !important;
+        /* Each boundary shows a single separator line drawn by the *upper* table's bottom
+           border, so the 1em margin gap sits below the line — between the line and the
+           lower section's title. Drop #sai10k-table's top border (pangolin's bottom border
+           covers it) and drop #other-predictors-table's top border when it follows sai10k
+           (sai10k's bottom border covers it). Default .ui.table 1em vertical margins are
+           preserved so each section has breathing room above and below its title. */
+        #sai10k-table {
+            border-top: 0 !important;
         }
-        #spliceai-table + #sai10k-table {
-            margin-top: 0 !important;
+        #sai10k-table + #other-predictors-table {
             border-top: 0 !important;
         }
 
@@ -350,18 +351,22 @@
                 <div>
                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues" target="_blank">SpliceAI-lookup/issues</a>: issues or feature requests for this website<br />
                     <br/>
-                    <b>December 14, 2025</b>
+                    <b>May, 2026</b>
                     <br />
-                    - In the 'Other scores' section, only populate the 'Points' column for missense variants since the calibration was only done for missense<br/>
-                    <br />
-                    <b>September 22, 2025</b>
-                    <br />
-                    - updated to Gencode v49 (was previously on v47)<br/>
-                    - added a new optional visualization track called<br/><b>"genes used for precomputed scores"</b>. It shows the Gencode v24 transcript models originally used by the SpliceAI authors to generate the precomputed SpliceAI score tables available from Illumina. This track can help explain some of the differences in scores between SpliceAI-lookup and these precomputed tables.<br/>
-                    <br />
+                    - Added SAI10k predictions<br/>
+                    <br />		    
                     <a id="more-details3-button" href="#"
                        onclick="$('#more-details3').show();$('#more-details3-button').hide();">[show older updates]</a>
                     <div id="more-details3" style="display:none">
+                        <b>December 14, 2025</b>
+			<br />
+			- In the 'Other scores' section, only populate the 'Points' column for missense variants since the calibration was only done for missense<br/>
+			<br />
+			<b>September 22, 2025</b>
+			<br />
+			- updated to Gencode v49 (was previously on v47)<br/>
+			- added a new optional visualization track called<br/><b>"genes used for precomputed scores"</b>. It shows the Gencode v24 transcript models originally used by the SpliceAI authors to generate the precomputed SpliceAI score tables available from Illumina. This track can help explain some of the differences in scores between SpliceAI-lookup and these precomputed tables.<br/>
+			<br />
                         <b>June 27, 2025</b>
                         <br />
                         - added PromoterAI scores for promoters of all protein-coding transcripts in Gencode v39 (not just the canonical transcripts)<br/>
@@ -492,18 +497,6 @@
                         </tr>
                         </thead>
                     </table>
-                    <table id="sai10k-table" class="ui stackable table">
-                        <thead id="sai10k-header">
-                            <tr>
-                                <th style="background-color:white" colspan="3">Predicted Splicing Consequences:</th>
-                            </tr>
-                            <tr>
-                                <th class="table-header">Method</th>
-                                <th class="table-header">Output</th>
-                                <th class="table-header"></th>
-                            </tr>
-                        </thead>
-                    </table>
                     <table id="transcript-button-table" class="ui stackable table" style="border: none !important">
                         <tbody>
                         <tr>
@@ -544,6 +537,18 @@
                                 <th class="table-header alt-score-column" style="white-space: nowrap">
                                     ALT score &nbsp; <i class='question circle outline icon'
                                                 data-content="Pangolin's computed probability that the given position is a splice site based on the alternate haplotype sequence."></i></th>
+                            </tr>
+                        </thead>
+                    </table>
+                    <table id="sai10k-table" class="ui stackable table">
+                        <thead id="sai10k-header">
+                            <tr>
+                                <th style="background-color:white" colspan="3">Predicted Splicing Consequences:</th>
+                            </tr>
+                            <tr>
+                                <th class="table-header">Method</th>
+                                <th class="table-header">Output</th>
+                                <th class="table-header"></th>
                             </tr>
                         </thead>
                     </table>
@@ -1513,11 +1518,11 @@
         const hasPrediction = sai10kAberrations.length > 0
 
         const tooltip = "SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, whole/partial intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with &gt;81% accuracy for predicting pseudoexon, partial intron retention, and exon skipping (<a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>). Variants are processed using default thresholds. Max distance of 10,000 is recommended to capture whole intron retention and multi-exon skipping."
-        const labelCell = `<td style="vertical-align: top; white-space: nowrap"><b>SAI-10k-calc</b> <i class="question circle outline icon" data-position="right center" data-html="${tooltip}"></i></td>`
+        const labelCell = `<td style="vertical-align: top; white-space: nowrap">SAI-10k-calc <i class="question circle outline icon" data-position="right center" data-html="${tooltip}"></i></td>`
 
         let valueCell, visualizeCell
         if (!hasPrediction) {
-            valueCell = `<td style="color: #888; font-style: italic;">No predicted splicing aberration</td>`
+            valueCell = `<td style="color: #888; font-style: italic; white-space: nowrap;">No prediction</td>`
             visualizeCell = `<td class="sai10k-visualize-cell"></td>`
         } else {
             const formatIntegers = (str) => str.replace(/\d+/g, (match) => parseInt(match).toLocaleString())
