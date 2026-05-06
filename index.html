@@ -1531,6 +1531,10 @@
                 // formatIntegers / the subsequent span-wrapping regexes are safe on escaped text
                 // (they match ASCII words / digits that don't collide with HTML entities).
                 let out = formatIntegers(escapeHtml(desc))
+                // "but introduces a stop codon" is appended by the backend when an
+                // in-frame coding aberration's altered protein gains a premature stop.
+                // Color it red so the warning isn't lost next to the green "in-frame" tag.
+                out = out.replace(/but introduces a stop codon/gi, '<span style="color: #c00;">but introduces a stop codon</span>')
                 if (frameshiftStatus === true) {
                     out = out.replace(/frameshift/gi, '<span style="color: #c00;">frameshift</span>')
                 } else if (frameshiftStatus === false) {
@@ -1565,6 +1569,17 @@
 
             const first = sai10kAberrations[0]
 
+            // When an in-frame aberration introduces a premature stop, the backend sets
+            // stop_codon_introduced=true and aa_change to a string like "TQL[WQNKVFSF*]".
+            // Render a (?) tooltip immediately after the description; the existing
+            // popup() initialiser at line ~1595 picks it up automatically.
+            const aaChangeIcon = (ab) => {
+                if (ab.stop_codon_introduced === true && ab.aa_change) {
+                    return ` <i class="question circle outline icon" data-content="Predicted altered protein: ${escapeHtml(ab.aa_change)}"></i>`
+                }
+                return ''
+            }
+
             // Max Δ score is already shown in the SpliceAI scores table above; the
             // "confidence" label is derived from SpliceAI score thresholds (not from
             // SAI-10k-calc's own prediction accuracy); the delta_type column ("acceptor
@@ -1573,12 +1588,12 @@
             let inner
             if (sai10kAberrations.length === 1) {
                 const desc = first.frameshift_description || ''
-                inner = desc ? `<span style="color: #666;">${colorizeDesc(desc, first.frameshift)}</span>` : ''
+                inner = desc ? `<span style="color: #666;">${colorizeDesc(desc, first.frameshift)}${aaChangeIcon(first)}</span>` : ''
             } else {
                 // One visualize link covers all aberrations (they share an IGV view).
                 const items = sai10kAberrations
                     .filter(ab => ab.frameshift_description)
-                    .map(ab => `<li style="margin: 2px 0;">${colorizeDesc(ab.frameshift_description, ab.frameshift)}</li>`)
+                    .map(ab => `<li style="margin: 2px 0;">${colorizeDesc(ab.frameshift_description, ab.frameshift)}${aaChangeIcon(ab)}</li>`)
                     .join('')
                 inner = items
                     ? `<ul style="margin: 0; padding-left: 0; color: #666; list-style: disc inside;">${items}</ul>`
@@ -2064,8 +2079,8 @@
                                     An <b>A</b> (acceptor) or <b>D</b> (donor) symbol is shown where SpliceAI predicts there to be a splice donor or acceptor with score ≥ 0.01. <br/>
                                     These symbols are shown up-side-down when the score for the alternate sequence is lower than the score for the reference sequence.
                                     Numerical labels represent scores for the reference sequence. These predictions are based on the pre-mRNA sequence for transcript <br />
-                                    <b>${spliceaiResponseJson.allNonZeroScoresTranscriptId}</b> (${spliceaiResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)
-                                    within a +/- ${spliceaiResponseJson.distance}bp window around <b>${chrom}:${variantPos} ${variantRef}>${variantAlt}</b>.`,
+                                    <b>${escapeHtml(spliceaiResponseJson.allNonZeroScoresTranscriptId)}</b> (${spliceaiResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)
+                                    within a +/- ${escapeHtml(spliceaiResponseJson.distance)}bp window around <b>${escapeHtml(chrom)}:${escapeHtml(variantPos)} ${escapeHtml(variantRef)}>${escapeHtml(variantAlt)}</b>.`,
                     height: 100,
                     rawOrDelta: "raw",
                     tool: "SpliceAI",
@@ -2082,8 +2097,8 @@
                                   <b style="color:#FFCB1F">yellow</b> for delta scores ≥ 0.5, and
                                   <b style="color:#1fb839">green</b> for delta scores ≥ 0.2<br />
                                   These predictions are based on the pre-mRNA sequence for transcript
-                                  <b>${spliceaiResponseJson.allNonZeroScoresTranscriptId}</b> (${spliceaiResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
-                                  within a +/- ${spliceaiResponseJson.distance}bp window around <b>${chrom}:${variantPos} ${variantRef}>${variantAlt}</b>.`,
+                                  <b>${escapeHtml(spliceaiResponseJson.allNonZeroScoresTranscriptId)}</b> (${spliceaiResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
+                                  within a +/- ${escapeHtml(spliceaiResponseJson.distance)}bp window around <b>${escapeHtml(chrom)}:${escapeHtml(variantPos)} ${escapeHtml(variantRef)}>${escapeHtml(variantAlt)}</b>.`,
                     height: 200,
                     rawOrDelta: "delta",
                     tool: "SpliceAI",
@@ -2104,8 +2119,8 @@
                                   <b style="color:#FFCB1F">yellow</b> for delta scores ≥ 0.5, and
                                   <b style="color:#1fb839">green</b> for delta scores ≥ 0.2<br />
                                   These predictions are based on the pre-mRNA sequence for transcript
-                                  <b>${pangolinResponseJson.allNonZeroScoresTranscriptId}</b> (${pangolinResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
-                                  within a +/- ${pangolinResponseJson.distance}bp window around <b>${chrom}:${variantPos} ${variantRef}>${variantAlt}</b>.`,
+                                  <b>${escapeHtml(pangolinResponseJson.allNonZeroScoresTranscriptId)}</b> (${pangolinResponseJson.allNonZeroScoresStrand == '-' ? 'minus' : 'plus'} strand)<br />
+                                  within a +/- ${escapeHtml(pangolinResponseJson.distance)}bp window around <b>${escapeHtml(chrom)}:${escapeHtml(variantPos)} ${escapeHtml(variantRef)}>${escapeHtml(variantAlt)}</b>.`,
                     height: 200,
                     rawOrDelta: "delta",
                     tool: "Pangolin",
