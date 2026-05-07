@@ -1645,7 +1645,7 @@
                     return ''
                 }
                 const cell = (s) => `<td style='padding: 2px 10px 2px 0;'>${s}</td>`
-                const aaCell = (n) => cell(n ? `${formatIntegers(n)}AA` : '')
+                const aaCell = (n) => cell(n ? `${formatIntegers(n)}aa` : '')
                 const row = (p) => {
                     const visibleHtml = formatIntegers(escapeHtml(p.visible_aa))
                     const changedHtml = p.changed_aa ? `<span style='color: #e67e22;'>[${formatIntegers(escapeHtml(p.changed_aa))}]</span>` : ''
