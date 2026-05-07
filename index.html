@@ -1613,12 +1613,11 @@
                     }
                     out += ` - ${statusHtml}`
                 }
-                if (d.introduces_stop_codon) {
-                    // Frameshift PTCs join with ", introduces a stop codon"
-                    // (after a "frameshift" status). In-frame / non-codon PTCs
-                    // join with " but introduces a stop codon".
-                    const join = frameshift === true ? ', ' : ' but '
-                    out += `<span style="color: #c00;">${join}introduces a stop codon</span>`
+                if (d.introduces_stop_codon && frameshift !== true) {
+                    // Frameshift events already imply a PTC, so omit the suffix
+                    // there. In-frame / non-codon PTCs still get
+                    // " but introduces a stop codon".
+                    out += `<span style="color: #c00;"> but introduces a stop codon</span>`
                 }
                 if (d.extends_past_native_stop) {
                     out += ' and extends past the native stop'
