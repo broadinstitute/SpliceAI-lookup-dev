@@ -99,15 +99,20 @@
             border-top: 0 !important;
         }
 
-        /* Lock the first-column width to 30% so SAI-10k's "Transcript" column starts
-           at the same x-coordinate as the SpliceAI / Pangolin "Transcript" column. The
-           first column is "Variant" in SpliceAI/Pangolin and "Method" in SAI-10k. Setting
-           the rule on the column-header th drives the whole column without colliding with
-           rowspan'd data cells. */
+        /* SpliceAI / Pangolin first column is "Variant" (long HGVS strings) — give it 30%.
+           SAI-10k Transcript / Method columns are pinned to widths that fit a typical
+           gene/transcript display so a variant with extra horizontal space can't stretch
+           them wider; Output and visualize stay content-sized and absorb the remainder.
+           (max-width on table cells is ignored under auto layout, so we use width.) */
         #spliceai-header > tr:nth-child(2) > th:first-child,
-        #pangolin-header > tr:nth-child(2) > th:first-child,
-        #sai10k-header > tr:nth-child(2) > th:first-child {
+        #pangolin-header > tr:nth-child(2) > th:first-child {
             width: 30%;
+        }
+        #sai10k-header > tr:nth-child(2) > th:first-child {
+            width: 640px;
+        }
+        #sai10k-header > tr:nth-child(2) > th:nth-child(2) {
+            width: 200px;
         }
 
         #sai10k-table .sai10k-visualize-cell {
@@ -543,8 +548,8 @@
                                 <th style="background-color:white" colspan="4">Predicted Splicing Consequences:</th>
                             </tr>
                             <tr>
-                                <th class="table-header">Method</th>
                                 <th class="table-header">Transcript</th>
+                                <th class="table-header">Method</th>
                                 <th class="table-header">Output</th>
                                 <th class="table-header"></th>
                             </tr>
@@ -1354,8 +1359,7 @@
         return `<td rowspan="${rowspan}" style="vertical-align: top">
                     <div style="margin-right:10px; display: inline-block">
                         ${escapeHtml(scores['g_name'])}
-                            <div class="small-link"> (
-                                <a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${encodeURIComponent(scores['g_id'].split('.')[0])}" target="_blank">${escapeHtml(scores['g_id'])}</a>
+                            <div class="small-link"> (&nbsp;<a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${encodeURIComponent(scores['g_id'].split('.')[0])}" target="_blank">${escapeHtml(scores['g_id'])}</a>
                                  / <a href="https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?t=${encodeURIComponent(scores['t_id'].split('.')[0])}" target="_blank">${escapeHtml(scores['t_id'])}</a>
                                  ${refSeqLink})
                             </div><br />
@@ -1533,6 +1537,17 @@
             ? buildTranscriptCellHtml(scoresForSai10k, genomeVersion, 1)
             : `<td></td>`
 
+        // Mirror generateSplicingResultsTable's main-transcript / coding-transcript
+        // class assignment so the SAI-10k row picks up the same blue (MANE Select) /
+        // white (coding) / gray (non-coding) background as the row above.
+        const sai10kRowClasses = []
+        if (scoresForSai10k) {
+            const hasMs = allScores.some(s => s.t_priority === "MS")
+            const isMain = scoresForSai10k.t_priority !== "N" && (scoresForSai10k.t_priority !== "C" || !hasMs)
+            sai10kRowClasses.push(isMain ? "main-transcript" : "non-main-transcript")
+            sai10kRowClasses.push(scoresForSai10k.t_type === "protein_coding" ? "coding-transcript" : "non-coding-transcript")
+        }
+
         const tooltip = "SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, whole/partial intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with &gt;81% accuracy for predicting pseudoexon, partial intron retention, and exon skipping (<a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>). Variants are processed using default thresholds. Max distance of 10,000 is recommended to capture whole intron retention and multi-exon skipping."
         const labelCell = `<td style="vertical-align: top; white-space: nowrap">SAI-10k-calc <i class="question circle outline icon" data-position="right center" data-html="${tooltip}"></i></td>`
 
@@ -1619,7 +1634,7 @@
             visualizeCell = `<td class="sai10k-visualize-cell" style="vertical-align: top; white-space: nowrap"><a href="#" class="sai10k-visualize-link">visualize</a></td>`
         }
 
-        $("#sai10k-header").after(`<tr>${labelCell}${transcriptCell}${valueCell}${visualizeCell}</tr>`)
+        $("#sai10k-header").after(`<tr class="${sai10kRowClasses.join(' ')}">${transcriptCell}${labelCell}${valueCell}${visualizeCell}</tr>`)
 
         // The page-wide popup() init runs before this function, so attach the popup to
         // the SAI-10k-calc question icon now that the row has been injected.
