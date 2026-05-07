@@ -1414,11 +1414,25 @@
         //underscore.js v1.12, so .values() (Array.prototype.values()) just wrapped it in a
         //one-shot iterator that got drained by the for-of below — leaving scores empty for
         //any later consumer (e.g. generateSai10kTable).
-        apiResponseJson.scores = _(apiResponseJson.scores).sortBy((s) => (  //compute sort key
+        apiResponseJson.scores = _(apiResponseJson.scores).sortBy((s) => {  //compute sort key
+            // Tie-break within the same priority/coding tier by sum(|DS_*|),
+            // matching sai10k_select_transcript (SpliceAI: DS_AG/AL/DG/DL) and
+            // get_pangolin_scores (Pangolin: DS_SL/SG) in the backend, so the
+            // row displayed at the top of the table is the one SAI-10k analyzed.
+            // scoreSum is bounded by ~4 (SpliceAI) / ~2 (Pangolin), well below
+            // the priority unit weight of 1, so the tier ordering is preserved.
+            let scoreSum = 0
+            for (const k of ['DS_AG', 'DS_AL', 'DS_DG', 'DS_DL', 'DS_SL', 'DS_SG']) {
+                const v = parseFloat(s[k])
+                if (!isNaN(v)) scoreSum += Math.abs(v)
+            }
+            return (
                 100*(s['t_priority'].startsWith("M") ? 0 : 1) +
                 10* (s['t_type'] == "protein_coding" ? 0 : 1) +
-                -1*  TRANSCRIPT_PRIORITY[s['t_priority']]
-        ))
+                -1*  TRANSCRIPT_PRIORITY[s['t_priority']] +
+                -0.001 * scoreSum
+            )
+        })
 
 
         const transcriptCategories = {}
