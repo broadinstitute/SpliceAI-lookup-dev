@@ -99,23 +99,18 @@
             border-top: 0 !important;
         }
 
-        /* Lock the first-column width so the SAI-10k "Output" column starts at the
-           same x-coordinate as the SpliceAI/Pangolin "Gene" column. Setting it on the
-           column-header th drives the whole column without colliding with rowspan'd
-           data cells. */
+        /* Lock the first-column width to 30% so SAI-10k's "Transcript" column starts
+           at the same x-coordinate as the SpliceAI / Pangolin "Transcript" column. The
+           first column is "Variant" in SpliceAI/Pangolin and "Method" in SAI-10k. Setting
+           the rule on the column-header th drives the whole column without colliding with
+           rowspan'd data cells. */
         #spliceai-header > tr:nth-child(2) > th:first-child,
         #pangolin-header > tr:nth-child(2) > th:first-child,
         #sai10k-header > tr:nth-child(2) > th:first-child {
             width: 30%;
         }
 
-        /* Make the SAI-10k "visualize" column greedy: it absorbs all remaining
-           horizontal space so the Output column shrinks to fit its predictions
-           content, and the "visualize" link sits left-aligned immediately to the
-           right of the predictions. */
-        #sai10k-header > tr:nth-child(2) > th:nth-child(3),
         #sai10k-table .sai10k-visualize-cell {
-            width: 100%;
             text-align: left;
         }
 
@@ -471,7 +466,7 @@
                         </tr>
                         <tr>
                             <th class="table-header">Variant</th>
-                            <th class="table-header" style="white-space: nowrap">Gene
+                            <th class="table-header" style="white-space: nowrap">Transcript
                                 <div style="float:right;">
                                     <span class='transcript-color-legend'
                                           style="background-color: var(--MAIN_TRANSCRIPT_BACKGROUND_COLOR)!important">&nbsp;</span>
@@ -525,7 +520,7 @@
                             </tr>
                             <tr>
                                 <th class="table-header">Variant</th>
-                                <th class="table-header">Gene</th>
+                                <th class="table-header">Transcript</th>
                                 <th class="table-header">&#916;&nbsp; type</th>
                                 <th class="table-header" style="white-space: nowrap">&#916;&nbsp; score &nbsp; <i class='question circle outline icon'
                                                                                      data-html="Delta scores range from 0 to 1 and can be interpreted as the probability that the variant affects splicing at any position within a window around it (+/- 500bp by default). Pangolin does not recommend specific score thresholds; however, here scores of 0.2 or higher appear in <b style='color:#1fb839'>green</b>, 0.5 or higher appear in <b style='color:#FFCB1F'>yellow</b>, and 0.8 or higher appear in <b style='color:#FF0000'>red</b>."></i>
@@ -545,10 +540,11 @@
                     <table id="sai10k-table" class="ui stackable table">
                         <thead id="sai10k-header">
                             <tr>
-                                <th style="background-color:white" colspan="3">Predicted Splicing Consequences:</th>
+                                <th style="background-color:white" colspan="4">Predicted Splicing Consequences:</th>
                             </tr>
                             <tr>
                                 <th class="table-header">Method</th>
+                                <th class="table-header">Transcript</th>
                                 <th class="table-header">Output</th>
                                 <th class="table-header"></th>
                             </tr>
@@ -1307,6 +1303,78 @@
         return genomeVersion === "38" ? "gnomad_r4" : "gnomad_r2_1"
     }
 
+    const TRANSCRIPT_PRIORITY_VIEW_LOOKUP = {
+        "MS": `<a href="https://www.ncbi.nlm.nih.gov/refseq/MANE" target="_blank">MANE Select transcript</a>`,
+        "MP": `<a href="https://www.ncbi.nlm.nih.gov/refseq/MANE" target="_blank">MANE Plus Clinical transcript</a>`,
+        "C": "Canonical transcript",
+    }
+
+    const buildVariantCellHtml = (variant, normalizedVariant, variantConsequence, genomeVersion, rowspan) => {
+        const variantTokens = (normalizedVariant || "---").split("-")
+        const chrom = variantTokens[0]
+        const pos = variantTokens[1]
+        const ref = variantTokens[2]
+        const alt = variantTokens[3]
+        const gnomadVersion = getGnomadDataVersion(genomeVersion)
+
+        const variantConsequenceDiv = variantConsequence ? `
+            <div style="display: inline-block">
+                <a href="https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html" class="small-link" target="_blank">
+                ${escapeHtml(variantConsequence.replace(/_/g, ' '))}
+                </a>
+             </div>
+             <br class="only-large-screen"/>
+             ` : ""
+
+        const noDifferenceDueToNormalization = variant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-") == normalizedVariant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-")
+        const normalizedVariantDiv = noDifferenceDueToNormalization ? "" :
+            `<br class="only-large-screen"/>
+             <div style="margin-left:5px;margin-right:10px; display: inline-block; color:#333333">
+                <i>⇒ ${chrom}:${pos} ${truncateAllele(ref)} &gt; ${truncateAllele(alt)}</i>
+             </div>
+             <br class="only-large-screen"/>`
+
+        return `<td rowspan="${rowspan}" style="vertical-align: top">
+                    <div style="margin-right:10px; display: inline-block">${escapeHtml(truncateVariantString(variant))}</div><br class="only-large-screen"/>
+                    ${normalizedVariantDiv}
+                    <br class="only-large-screen"/>
+                    ${variantConsequenceDiv}
+                    <a href="${getUCSCBrowserUrl(genomeVersion, chrom, pos)}" class="small-link" target="_blank">UCSC</a>,
+                    <a href="https://gnomad.broadinstitute.org/variant/${chrom}-${pos}-${ref}-${alt}?dataset=${gnomadVersion}" class="small-link" target="_blank">gnomAD</a>
+                    <br class="only-large-screen"/>
+
+                </td>`
+    }
+
+    const buildTranscriptCellHtml = (scores, genomeVersion, rowspan) => {
+        const gnomadVersion = getGnomadDataVersion(genomeVersion)
+        const strand = scores['t_strand'] == "-" ? "minus" : "plus"
+        const refSeqLink = scores['t_refseq_ids']? `/ <a href="https://www.ncbi.nlm.nih.gov/search/all/?term=${encodeURIComponent(scores['t_refseq_ids'][0])}" target="_blank">${escapeHtml(scores['t_refseq_ids'][0])}</a>` : ""
+
+        return `<td rowspan="${rowspan}" style="vertical-align: top">
+                    <div style="margin-right:10px; display: inline-block">
+                        ${escapeHtml(scores['g_name'])}
+                            <div class="small-link"> (
+                                <a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${encodeURIComponent(scores['g_id'].split('.')[0])}" target="_blank">${escapeHtml(scores['g_id'])}</a>
+                                 / <a href="https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?t=${encodeURIComponent(scores['t_id'].split('.')[0])}" target="_blank">${escapeHtml(scores['t_id'])}</a>
+                                 ${refSeqLink})
+                            </div><br />
+                            <br class="only-large-screen" />
+                        <div class="small-link"><a href="https://www.gencodegenes.org/pages/biotypes.html" target="_blank">${escapeHtml(scores['t_type'].replace(/_/g, " "))}</a></div>
+                        <div class="small-link">${scores['t_priority'] != "N" ? TRANSCRIPT_PRIORITY_VIEW_LOOKUP[scores['t_priority']] : ""}</div>
+                        <div class="small-link"> (${escapeHtml(strand)} strand)</div>
+                    </div><br class="only-large-screen" />
+                    <br class="only-large-screen" />
+                    <a href="https://www.omim.org/search?search=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">OMIM</a>,
+                    <a href="https://gtexportal.org/home/gene/${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">GTEx</a>,
+                    <a href="https://gnomad.broadinstitute.org/gene/${encodeURIComponent(scores['g_name'])}?dataset=${encodeURIComponent(gnomadVersion)}" class="small-link" target="_blank">gnomAD</a>,
+                    <a href="https://search.clinicalgenome.org/kb/genes?page=1&size=25&search=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">ClinGen</a>,
+                    <a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">Ensembl</a>,
+                    <a href="https://www.deciphergenomics.org/gene/${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">Decipher</a>,
+                    <a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">GeneCards</a>
+                </td>`
+    }
+
     const generateSplicingResultsTable = async (normalizedVariant, variantConsequence, tool, variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltScoreColumns) => {
         /* Generate the results table to show either the SpliceAI or Pangolin scores */
 
@@ -1338,37 +1406,15 @@
             throw Error(`${tool} API call error ${apiResponseJson.error ? `: ${apiResponseJson.error}` : ""}`)
         }
 
-        variantConsequence = variantConsequence || ""
-        const variantConsequenceDiv = variantConsequence ? `
-            <div style="display: inline-block">
-                <a href="https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html" class="small-link" target="_blank">
-                ${escapeHtml(variantConsequence.replace(/_/g, ' '))}
-                </a>
-             </div>
-             <br class="only-large-screen"/>
-             ` : ""
-
-        //sort transcripts
+        //sort transcripts. _(arr).sortBy(fn) already returns a plain sorted array under
+        //underscore.js v1.12, so .values() (Array.prototype.values()) just wrapped it in a
+        //one-shot iterator that got drained by the for-of below — leaving scores empty for
+        //any later consumer (e.g. generateSai10kTable).
         apiResponseJson.scores = _(apiResponseJson.scores).sortBy((s) => (  //compute sort key
                 100*(s['t_priority'].startsWith("M") ? 0 : 1) +
                 10* (s['t_type'] == "protein_coding" ? 0 : 1) +
                 -1*  TRANSCRIPT_PRIORITY[s['t_priority']]
-        )).values()
-
-
-        const TRANSCRIPT_PRIORITY_VIEW_LOOKUP = {
-            "MS": `<a href="https://www.ncbi.nlm.nih.gov/refseq/MANE" target="_blank">MANE Select transcript</a>`,
-            "MP": `<a href="https://www.ncbi.nlm.nih.gov/refseq/MANE" target="_blank">MANE Plus Clinical transcript</a>`,
-            "C": "Canonical transcript",
-        }
-
-        const noDifferenceDueToNormalization = variant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-") == normalizedVariant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-")
-        const normalizedVariantDiv = noDifferenceDueToNormalization ? "" :
-            `<br class="only-large-screen"/>
-             <div style="margin-left:5px;margin-right:10px; display: inline-block; color:#333333">
-                <i>⇒ ${chrom}:${pos} ${truncateAllele(ref)} &gt; ${truncateAllele(alt)}</i>
-             </div>
-             <br class="only-large-screen"/>`
+        ))
 
 
         const transcriptCategories = {}
@@ -1378,10 +1424,7 @@
         for (const scores of apiResponseJson.scores) {
             const isPangolin = tool.toLowerCase() == "pangolin"
             const subRowCount = isPangolin ? 2 : 4
-            const strand = scores['t_strand'] == "-" ? "minus" : "plus"
-            const gnomadVersion = getGnomadDataVersion(genomeVersion)
             const isMainTranscript = scores['t_priority'] != "N" && (scores['t_priority'] != "C" || transcriptCategories["MS"] == undefined)
-            const refSeqLink = scores['t_refseq_ids']? `/ <a href="https://www.ncbi.nlm.nih.gov/search/all/?term=${encodeURIComponent(scores['t_refseq_ids'][0])}" target="_blank">${escapeHtml(scores['t_refseq_ids'][0])}</a>` : ""
 
             transcriptCategories[scores['t_priority']] = true
 
@@ -1399,38 +1442,8 @@
 
             $(`#${tool.toLowerCase()}-header`).nextAll().remove()
             let row = `<tr class="${resultRowClasses.join(' ')}">
-                <td rowspan="${subRowCount}" style="vertical-align: top">
-                    <div style="margin-right:10px; display: inline-block">${escapeHtml(truncateVariantString(variant))}</div><br class="only-large-screen"/>
-                    ${normalizedVariantDiv}
-                    <br class="only-large-screen"/>
-                    ${variantConsequenceDiv}
-                    <a href="${getUCSCBrowserUrl(genomeVersion, chrom, pos)}" class="small-link" target="_blank">UCSC</a>,
-                    <a href="https://gnomad.broadinstitute.org/variant/${chrom}-${pos}-${ref}-${alt}?dataset=${gnomadVersion}" class="small-link" target="_blank">gnomAD</a>
-                    <br class="only-large-screen"/>
-
-                </td>
-                <td rowspan="${subRowCount}" style="vertical-align: top">
-                    <div style="margin-right:10px; display: inline-block">
-                        ${escapeHtml(scores['g_name'])}
-                            <div class="small-link"> (
-                                <a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${encodeURIComponent(scores['g_id'].split('.')[0])}" target="_blank">${escapeHtml(scores['g_id'])}</a>
-                                 / <a href="https://useast.ensembl.org/Homo_sapiens/Transcript/Summary?t=${encodeURIComponent(scores['t_id'].split('.')[0])}" target="_blank">${escapeHtml(scores['t_id'])}</a>
-                                 ${refSeqLink})
-                            </div><br />
-                            <br class="only-large-screen" />
-                        <div class="small-link"><a href="https://www.gencodegenes.org/pages/biotypes.html" target="_blank">${escapeHtml(scores['t_type'].replace(/_/g, " "))}</a></div>
-                        <div class="small-link">${scores['t_priority'] != "N" ? TRANSCRIPT_PRIORITY_VIEW_LOOKUP[scores['t_priority']] : ""}</div>
-                        <div class="small-link"> (${escapeHtml(strand)} strand)</div>
-                    </div><br class="only-large-screen" />
-                    <br class="only-large-screen" />
-                    <a href="https://www.omim.org/search?search=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">OMIM</a>,
-                    <a href="https://gtexportal.org/home/gene/${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">GTEx</a>,
-                    <a href="https://gnomad.broadinstitute.org/gene/${encodeURIComponent(scores['g_name'])}?dataset=${encodeURIComponent(gnomadVersion)}" class="small-link" target="_blank">gnomAD</a>,
-                    <a href="https://search.clinicalgenome.org/kb/genes?page=1&size=25&search=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">ClinGen</a>,
-                    <a href="https://useast.ensembl.org/Homo_sapiens/Gene/Summary?g=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">Ensembl</a>,
-                    <a href="https://www.deciphergenomics.org/gene/${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">Decipher</a>,
-                    <a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">GeneCards</a>
-                </td>`
+                ${buildVariantCellHtml(variant, normalizedVariant, variantConsequence, genomeVersion, subRowCount)}
+                ${buildTranscriptCellHtml(scores, genomeVersion, subRowCount)}`
 
             for (const [i, label, scoreKey, positionKey, REF_scoreKey, ALT_scoreKey] of (
                 isPangolin ? [
@@ -1480,16 +1493,6 @@
 
         $(`#${tool.toLowerCase()}-header`).after(tableRows.join(""))
 
-        if (transcriptCategories["MS"]) {
-            $(".main-transcript-label").html("MANE Select")
-        } else if (transcriptCategories["MP"]) {
-            $(".main-transcript-label").html("MANE Plus Clinical")
-        } else if (transcriptCategories["C"]) {
-            $(".main-transcript-label").html("Canonical")
-        } else {
-            $("#transcript-button-table").hide()
-        }
-
         // initialize any modal dialogs
         for (const modalDialogIndex of modalDialogIds) {
             $(`#table-icon${modalDialogIndex}`).click(() => {
@@ -1497,14 +1500,16 @@
             })
         }
 
-        $("#transcript-button-table").show()
-        updateTranscriptButtons(Object.keys(transcriptCategories).length > 1 ? "main" : "all")
+        // The .main-transcript-label / #transcript-button-table / updateTranscriptButtons
+        // decisions are made once in handleSubmit using the union of transcriptCategories
+        // across both tools' responses — see the comment there. Doing it here would race
+        // with the parallel tool's call.
 
         return apiResponseJson
     }
 
 
-    const generateSai10kTable = (spliceaiResponseJson) => {
+    const generateSai10kTable = (spliceaiResponseJson, genomeVersion) => {
         /* Render the SAI-10k-calc prediction row(s) into the "Predicted Splicing Consequences" table.
          * Hidden when SpliceAI itself failed; shows a "no prediction available" placeholder when SpliceAI
          * succeeded but no aberrations were predicted. */
@@ -1519,12 +1524,21 @@
         const sai10kAberrations = sai10kPredictions ? (sai10kPredictions.aberrations || []) : []
         const hasPrediction = sai10kAberrations.length > 0
 
+        // Match the transcript SAI-10k-calc scored against so the Transcript cell makes
+        // the reference transcript explicit (exon numbering depends on it). Fall back
+        // to the highest-priority scored transcript if transcript_id is missing.
+        const allScores = spliceaiResponseJson.scores || []
+        const scoresForSai10k = (sai10kPredictions && allScores.find(s => s.t_id === sai10kPredictions.transcript_id)) || allScores[0]
+        const transcriptCell = scoresForSai10k
+            ? buildTranscriptCellHtml(scoresForSai10k, genomeVersion, 1)
+            : `<td></td>`
+
         const tooltip = "SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, whole/partial intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with &gt;81% accuracy for predicting pseudoexon, partial intron retention, and exon skipping (<a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>). Variants are processed using default thresholds. Max distance of 10,000 is recommended to capture whole intron retention and multi-exon skipping."
         const labelCell = `<td style="vertical-align: top; white-space: nowrap">SAI-10k-calc <i class="question circle outline icon" data-position="right center" data-html="${tooltip}"></i></td>`
 
         let valueCell, visualizeCell
         if (!hasPrediction) {
-            valueCell = `<td style="color: #888; font-style: italic; white-space: nowrap;">No prediction</td>`
+            valueCell = `<td style="vertical-align: top; color: #888; font-style: italic; white-space: nowrap;">No prediction</td>`
             visualizeCell = `<td class="sai10k-visualize-cell"></td>`
         } else {
             const formatIntegers = (str) => str.replace(/\d+/g, (match) => parseInt(match).toLocaleString())
@@ -1601,11 +1615,11 @@
                     ? `<ul style="margin: 0; padding-left: 0; color: #666; list-style: disc inside;">${items}</ul>`
                     : ''
             }
-            valueCell = `<td style="white-space: nowrap">${inner}</td>`
+            valueCell = `<td style="vertical-align: top; white-space: nowrap">${inner}</td>`
             visualizeCell = `<td class="sai10k-visualize-cell" style="vertical-align: top; white-space: nowrap"><a href="#" class="sai10k-visualize-link">visualize</a></td>`
         }
 
-        $("#sai10k-header").after(`<tr>${labelCell}${valueCell}${visualizeCell}</tr>`)
+        $("#sai10k-header").after(`<tr>${labelCell}${transcriptCell}${valueCell}${visualizeCell}</tr>`)
 
         // The page-wide popup() init runs before this function, so attach the popup to
         // the SAI-10k-calc question icon now that the row has been injected.
@@ -2383,15 +2397,15 @@
             if (spliceaiResponseJson.error) {
                 showError(`${spliceaiResponseJson.error}`)
                 spliceaiResponseJson = null
-                $("#spliceai-table, #transcript-button-table").hide()
+                $("#spliceai-table").hide()
             } else {
                 if (spliceaiResponseJson.sai10kPredictionsError) {
                     showError(`SAI-10k predictions failed: ${spliceaiResponseJson.sai10kPredictionsError}`)
                 }
-                $("#spliceai-table, #transcript-button-table").show()
+                $("#spliceai-table").show()
             }
 
-            generateSai10kTable(spliceaiResponseJson)
+            generateSai10kTable(spliceaiResponseJson, genomeVersion)
 
             if (pangolinResponseJson.error) {
                 showError(`${pangolinResponseJson.error}`)
@@ -2399,6 +2413,31 @@
                 $("#pangolin-table").hide()
             } else {
                 $("#pangolin-table").show()
+            }
+
+            // Decide the transcript-filter button state ONCE, using the union of
+            // transcriptCategories across both tools' responses. The two backends can
+            // return different transcript sets for the same variant (e.g. SpliceAI
+            // returns MS+N, Pangolin returns just MS), so doing this inside each tool's
+            // response handler would race — whichever Promise.all branch resolved last
+            // would win, producing nondeterministic UI on page load.
+            const transcriptCategories = {}
+            for (const json of [spliceaiResponseJson, pangolinResponseJson]) {
+                if (!json || !json.scores) continue
+                for (const s of json.scores) transcriptCategories[s.t_priority] = true
+            }
+            if (transcriptCategories["MS"]) {
+                $(".main-transcript-label").html("MANE Select")
+            } else if (transcriptCategories["MP"]) {
+                $(".main-transcript-label").html("MANE Plus Clinical")
+            } else if (transcriptCategories["C"]) {
+                $(".main-transcript-label").html("Canonical")
+            }
+            if (Object.keys(transcriptCategories).length === 0) {
+                $("#transcript-button-table").hide()
+            } else {
+                $("#transcript-button-table").show()
+                updateTranscriptButtons(Object.keys(transcriptCategories).length > 1 ? "main" : "all")
             }
 
             // update url params
