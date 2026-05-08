@@ -1631,31 +1631,51 @@
 
             const first = sai10kAberrations[0]
 
-            // When an aberration introduces a premature stop, the backend sets
-            // stop_codon_introduced=true plus wt_protein_window /
-            // altered_protein_window dicts of the shape:
-            //   { prefix_hidden_aa, visible_aa, changed_aa, suffix_hidden_aa, total_aa }
-            // where changed_aa is null on the WT side and holds the PTC region
-            // (incl. trailing '*') on the altered side. Render a table-icon
-            // popup that splits each window into prefix / visible / suffix /
-            // total columns; the predicted sequence has no suffix when
-            // truncated by the new stop (suffix_hidden_aa=0). Inline styles
-            // use single quotes so they don't collide with the data-html=""
-            // wrapper.
+            // The backend populates wt_protein_window / altered_protein_window
+            // dicts whenever a coding-affecting aberration has a renderable
+            // protein-level change:
+            //   * PTC: stop_codon_introduced=true. WT keeps a full visible
+            //     window with changed_aa=null; altered has changed_aa = the
+            //     PTC region (incl. trailing '*') and terminates there.
+            //   * In-frame coding change (no PTC, frameshift=false). Both
+            //     windows carry a bracketed changed_aa with visible flanks on
+            //     both sides (visible_aa = before, trailing_visible_aa =
+            //     after). For pure deletion the altered changed_aa is ''
+            //     (rendered as a `|` site marker); symmetric for pure
+            //     insertion on the WT side.
+            // Window dict shape:
+            //   { prefix_hidden_aa, visible_aa, changed_aa,
+            //     trailing_visible_aa, suffix_hidden_aa, total_aa }
+            // Inline styles use single quotes so they don't collide with the
+            // data-html="" wrapper.
             const aaChangeIcon = (ab) => {
                 const wt = ab.wt_protein_window
                 const alt = ab.altered_protein_window
-                if (ab.stop_codon_introduced !== true || !wt || typeof wt !== 'object' || !alt || typeof alt !== 'object') {
+                if (!wt || typeof wt !== 'object' || !alt || typeof alt !== 'object') {
                     return ''
                 }
                 const cell = (s) => `<td style='padding: 2px 10px 2px 0;'>${s}</td>`
                 const aaCell = (n) => cell(n ? `${formatIntegers(n)}aa` : '')
+                // Long inserted/deleted blocks (>50 aa) are mid-truncated as
+                // first 25 + ... + last 25 so the popup width stays bounded.
+                const truncateChanged = (s) => s.length > 50 ? `${s.slice(0, 25)}...${s.slice(-25)}` : s
                 const row = (p) => {
                     const visibleHtml = formatIntegers(escapeHtml(p.visible_aa))
-                    const changedHtml = p.changed_aa ? `<span style='color: #e67e22;'>[${formatIntegers(escapeHtml(p.changed_aa))}]</span>` : ''
+                    const trailingHtml = formatIntegers(escapeHtml(p.trailing_visible_aa || ''))
+                    let changedHtml
+                    if (p.changed_aa === '') {
+                        // Pure insertion (WT side) / pure deletion (altered
+                        // side): single-character change-site marker.
+                        changedHtml = `<span style='color: #e67e22;'>|</span>`
+                    } else if (p.changed_aa) {
+                        const display = truncateChanged(p.changed_aa)
+                        changedHtml = `<span style='color: #e67e22;'>[${formatIntegers(escapeHtml(display))}]</span>`
+                    } else {
+                        changedHtml = ''
+                    }
                     const lead = p.prefix_hidden_aa ? '+&nbsp;' : ''
                     const trail = p.suffix_hidden_aa ? '&nbsp;+' : ''
-                    const middle = `${lead}${visibleHtml}${changedHtml}${trail}`
+                    const middle = `${lead}${visibleHtml}${changedHtml}${trailingHtml}${trail}`
                     const totalCell = `<td style='padding: 2px 10px 2px 0; white-space: nowrap;'><div style='display: flex; justify-content: space-between; gap: 1em;'><span>=</span><span>${formatIntegers(p.total_aa)}aa total</span></div></td>`
                     return `<tr>${aaCell(p.prefix_hidden_aa)}${cell(middle)}${aaCell(p.suffix_hidden_aa)}${totalCell}</tr>`
                 }
