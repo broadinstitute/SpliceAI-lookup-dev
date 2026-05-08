@@ -1562,7 +1562,7 @@
             sai10kRowClasses.push(scoresForSai10k.t_type === "protein_coding" ? "coding-transcript" : "non-coding-transcript")
         }
 
-        const tooltip = "SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, whole/partial intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with &gt;81% accuracy for predicting pseudoexon, partial intron retention, and exon skipping (<a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>). Variants are processed using default thresholds. Max distance of 10,000 is recommended to capture whole intron retention and multi-exon skipping."
+        const tooltip = "SAI-10k-calc interprets SpliceAI outputs to predict splicing aberration type (pseudoexonization, whole/partial intron retention, partial exon deletion, exon skipping), the size of inserted/deleted sequence, and effect on reading frame. It has 95% sensitivity and 96% specificity, with &gt;81% accuracy for predicting pseudoexon, partial intron retention, and exon skipping (<a href='https://academic.oup.com/bioinformatics/article/39/4/btad179/7109800' target='_blank'>Canson et al. 2023</a>). We recommend setting 'Max distance' to 10,000 inorder to better capture whole intron retention and multi-exon skipping events."
         const labelCell = `<td style="vertical-align: top; white-space: nowrap">SAI-10k-calc <i class="question circle outline icon" data-position="right center" data-html="${tooltip}"></i></td>`
 
         let valueCell, visualizeCell
