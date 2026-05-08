@@ -893,6 +893,7 @@
 
     // store user settings at the time of the last 'submit', as well as the resulting responses from the server
     let lastGenomeVersion, lastSpliceaiResponseJson, lastPangolinResponseJson
+    let currentSubmissionId = 0
 
     // Escape HTML-unsafe characters in strings that are about to be interpolated
     // into template literals and injected via jQuery .html() / .after() / data-html.
@@ -1439,9 +1440,9 @@
         const tableRows = []
         const modalDialogIds = []
         let transcriptIndex = 0
+        const isPangolin = tool.toLowerCase() == "pangolin"
+        const subRowCount = isPangolin ? 2 : 4
         for (const scores of apiResponseJson.scores) {
-            const isPangolin = tool.toLowerCase() == "pangolin"
-            const subRowCount = isPangolin ? 2 : 4
             const isMainTranscript = scores['t_priority'] != "N" && (scores['t_priority'] != "C" || transcriptCategories["MS"] == undefined)
 
             transcriptCategories[scores['t_priority']] = true
@@ -1459,8 +1460,11 @@
             }
 
             $(`#${tool.toLowerCase()}-header`).nextAll().remove()
+            const variantCellHtml = transcriptIndex === 0
+                ? buildVariantCellHtml(variant, normalizedVariant, variantConsequence, genomeVersion, subRowCount)
+                : `<td rowspan="${subRowCount}"></td>`
             let row = `<tr class="${resultRowClasses.join(' ')}">
-                ${buildVariantCellHtml(variant, normalizedVariant, variantConsequence, genomeVersion, subRowCount)}
+                ${variantCellHtml}
                 ${buildTranscriptCellHtml(scores, genomeVersion, subRowCount)}`
 
             for (const [i, label, scoreKey, positionKey, REF_scoreKey, ALT_scoreKey] of (
@@ -2395,11 +2399,19 @@
 
 
     const handleSubmit = async () => {
+        // Tag this submission so any in-flight API calls from prior submissions
+        // can be detected (and their late showError calls suppressed) once a new
+        // submission starts.
+        const submissionId = ++currentSubmissionId
+        const showErrorIfCurrent = (msg) => {
+            if (submissionId === currentSubmissionId) showError(msg)
+        }
+
         // get user inputs from form elements
         const variant = $("#search-box").val().trim()
         if (!variant) return
         if (variant.length > 10000) {
-            showError("Input cannot be larger than 10,000 characters")
+            showErrorIfCurrent("Input cannot be larger than 10,000 characters")
             return
         }
         const genomeVersion = $("input[name='hg']:checked").val().trim()
@@ -2432,7 +2444,7 @@
 
         // Check for internet connectivity before making API calls
         if (!navigator.onLine) {
-            showError("No internet connection. Please check your network and try again.")
+            showErrorIfCurrent("No internet connection. Please check your network and try again.")
             $("#submit-button").removeClass("loading disabled")
             return
         }
@@ -2445,7 +2457,7 @@
 
             // Show warning if Ensembl API fallback was used
             if (normalizedVariantAndConsequence.usedFallback) {
-                showError(`Note: ${normalizedVariantAndConsequence.fallbackReason}. VEP consequence is unavailable.`)
+                showErrorIfCurrent(`Note: ${normalizedVariantAndConsequence.fallbackReason}. VEP consequence is unavailable.`)
             }
 
             let [spliceaiResponseJson, pangolinResponseJson, otherPredictorsResponseJson] = await Promise.all([
@@ -2466,12 +2478,12 @@
             $(".ui.modal").modal()
 
             if (spliceaiResponseJson.error) {
-                showError(`${spliceaiResponseJson.error}`)
+                showErrorIfCurrent(`${spliceaiResponseJson.error}`)
                 spliceaiResponseJson = null
                 $("#spliceai-table").hide()
             } else {
                 if (spliceaiResponseJson.sai10kPredictionsError) {
-                    showError(`SAI-10k predictions failed: ${spliceaiResponseJson.sai10kPredictionsError}`)
+                    showErrorIfCurrent(`SAI-10k predictions failed: ${spliceaiResponseJson.sai10kPredictionsError}`)
                 }
                 $("#spliceai-table").show()
             }
@@ -2479,7 +2491,7 @@
             generateSai10kTable(spliceaiResponseJson, genomeVersion)
 
             if (pangolinResponseJson.error) {
-                showError(`${pangolinResponseJson.error}`)
+                showErrorIfCurrent(`${pangolinResponseJson.error}`)
                 pangolinResponseJson = null
                 $("#pangolin-table").hide()
             } else {
@@ -2532,7 +2544,7 @@
             }
         } catch(e) {
             console.error(e)
-            showError(e.message)
+            showErrorIfCurrent(e.message)
         }
 
         //done processing submit
