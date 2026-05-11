@@ -14,13 +14,23 @@
 
         const baseApiUrl = {
             "normalize": "https://liftover-xwkwwwxdwq-uc.a.run.app",
-            "pangolin-37": "https://dev---pangolin-37-xwkwwwxdwq-uc.a.run.app",
-            "pangolin-38": "https://dev---pangolin-38-xwkwwwxdwq-uc.a.run.app",
-            "spliceai-37": "https://dev---spliceai-37-xwkwwwxdwq-uc.a.run.app",
-            "spliceai-38": "https://dev---spliceai-38-xwkwwwxdwq-uc.a.run.app",
+            "pangolin-37": "https://pangolin-37-xwkwwwxdwq-uc.a.run.app",
+            "pangolin-38": "https://pangolin-38-xwkwwwxdwq-uc.a.run.app",
+            "spliceai-37": "https://spliceai-37-xwkwwwxdwq-uc.a.run.app",
+            "spliceai-38": "https://spliceai-38-xwkwwwxdwq-uc.a.run.app",
         }
 
-        //console.log("Using SpliceAI API url:", baseApiUrl)
+        // If the URL hash contains api=dev, swap spliceai/pangolin URLs to
+        // their 'dev'-tagged Cloud Run revisions (deployed by
+        // build_and_deploy.py --dev). 'normalize' (liftover) is unaffected
+        // because build_and_deploy.py doesn't manage that service.
+        const _apiMatch = window.location.hash.match(/[?&#]api=([^&#]*)/)
+        if (_apiMatch && _apiMatch[1] === "dev") {
+            for (const k of ["pangolin-37", "pangolin-38", "spliceai-37", "spliceai-38"]) {
+                baseApiUrl[k] = baseApiUrl[k].replace(/^https:\/\//, "https://dev---")
+            }
+            console.log("api=dev: routing spliceai/pangolin requests to dev revisions:", baseApiUrl)
+        }
     </script>
     <meta content="width=device-width, initial-scale=1" charset="utf-8" name="viewport"/>
     <title>SpliceAI Lookup</title>
