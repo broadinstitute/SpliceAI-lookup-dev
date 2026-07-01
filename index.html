@@ -1715,8 +1715,19 @@
                 inner = d ? `<span style="color: #666;">${renderDescription(d, first.frameshift)}${aaChangeIcon(first)}</span>` : ''
             } else {
                 // One visualize link covers all aberrations (they share an IGV view).
+                // Only the cryptic splice-site predictions (partial exon deletion /
+                // partial intron retention) carry an alt_score, and the backend
+                // always emits them contiguously at the END of the list (loss and
+                // gain-A aberrations, which have no alt_score, come first). Given
+                // that contiguity, this comparator sorts the cryptic block by
+                // descending ALT score while leaving the non-cryptic prefix in
+                // place (it returns 0 for any pair involving a non-alt aberration).
+                // NOTE: the comparator is not a strict-weak-order, so it relies on
+                // that contiguity — it would misorder cryptic rows if a non-alt
+                // aberration were ever interleaved among them.
                 const items = sai10kAberrations
                     .filter(ab => ab.description)
+                    .sort((a, b) => (a.alt_score != null && b.alt_score != null) ? b.alt_score - a.alt_score : 0)
                     .map(ab => `<li style="margin: 2px 0;">${renderDescription(ab.description, ab.frameshift)}${aaChangeIcon(ab)}</li>`)
                     .join('')
                 inner = items
