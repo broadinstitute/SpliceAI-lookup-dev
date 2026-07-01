@@ -1022,10 +1022,23 @@
         // Error messages may include user-entered variant text and server-reflected
         // strings (Ensembl, myvariant.info, our own API). Render as text nodes
         // + explicit <br> elements instead of interpolating into an .html() string,
-        // so any HTML/JS in the message is neutralised.
+        // so any HTML/JS in the message is neutralised. An array of parts may be
+        // passed to embed a trusted link: each string becomes a text node and each
+        // {text, href} becomes an <a> opened in a new tab.
         const $box = $("#error-box")
         $box.append(document.createElement("br"))
-        $box.append(document.createTextNode(errorMessage == null ? "" : String(errorMessage)))
+        for (const part of (Array.isArray(errorMessage) ? errorMessage : [errorMessage])) {
+            if (part != null && typeof part === 'object' && part.href) {
+                const link = document.createElement("a")
+                link.href = part.href
+                link.target = "_blank"
+                link.rel = "noopener noreferrer"
+                link.textContent = String(part.text)
+                $box.append(link)
+            } else {
+                $box.append(document.createTextNode(part == null ? "" : String(part)))
+            }
+        }
         $box.append(document.createElement("br"))
         $box.show()
     }
@@ -1145,8 +1158,8 @@
                         'consequence': null,
                         'usedFallback': true,
                         'fallbackReason': errorMessage.includes('timed out')
-                            ? 'Ensembl API timed out; resolved coordinates via VariantValidator'
-                            : 'Ensembl API unavailable; resolved coordinates via VariantValidator'
+                            ? 'Ensembl API timed out; converted HGVS to genomic coordinates via VariantValidator'
+                            : 'Ensembl API unavailable; converted HGVS to genomic coordinates via VariantValidator'
                     }
                 }
                 // Ensembl is unreachable, VariantValidator couldn't resolve it, and the
@@ -2526,7 +2539,10 @@
         }
 
         // get user inputs from form elements
-        const variant = $("#search-box").val().trim()
+        // Strip surrounding whitespace, and also any trailing commas/semicolons
+        // (with whitespace around them) left over from pasting a variant out of a
+        // delimited list.
+        const variant = $("#search-box").val().trim().replace(/[\s,;]+$/, "")
         if (!variant) return
         if (variant.length > 10000) {
             showErrorIfCurrent("Input cannot be larger than 10,000 characters")
@@ -2575,7 +2591,19 @@
 
             // Show warning if Ensembl API fallback was used
             if (normalizedVariantAndConsequence.usedFallback) {
-                showErrorIfCurrent(`Note: ${normalizedVariantAndConsequence.fallbackReason}. VEP consequence is unavailable.`)
+                // Render "VariantValidator" in the fallback note as a link when the
+                // reason mentions it; all other reason text stays a plain text node.
+                const reason = normalizedVariantAndConsequence.fallbackReason
+                const vvIndex = reason.indexOf("VariantValidator")
+                if (vvIndex === -1) {
+                    showErrorIfCurrent(`Note: ${reason}. VEP consequence is unavailable.`)
+                } else {
+                    showErrorIfCurrent([
+                        `Note: ${reason.slice(0, vvIndex)}`,
+                        {text: "VariantValidator", href: "https://variantvalidator.org/"},
+                        `${reason.slice(vvIndex + "VariantValidator".length)}. VEP consequence is unavailable.`,
+                    ])
+                }
             }
 
             let [spliceaiResponseJson, pangolinResponseJson, otherPredictorsResponseJson] = await Promise.all([
