@@ -370,9 +370,13 @@
                 <div>
                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues" target="_blank">SpliceAI-lookup/issues</a>: issues or feature requests for this website<br />
                     <br/>
+                    <b>July 31st, 2026</b>
+                    <br />
+                    - Can now search for chrom:position only to see REF scores (eg. <a id="ref-score-example-link" href="https://broadinstitute.github.io/SpliceAI-lookup-dev/index.html#variant=8%3A140300616&hg=38&bc=basic&distance=5000&mask=0&ra=0" target="_blank">chr8:140300616</a>)<br/>
+                    <br />
                     <b>July 1st, 2026</b>
                     <br />
-                    - improved SpliceAI-10k output when SpliceAI predicts multiple acceptor/donor shifts (examples: <a href="https://spliceailookup.broadinstitute.org/#variant=NM_024675.4(PALB2)%3Ac.47A%3EG&hg=38&bc=basic&distance=500&mask=0&ra=0" target="_blank">NM_024675.4(PALB2):c.47A>G</a>, <a href="https://spliceailookup.broadinstitute.org/#variant=NM_000546.6(TP53)%3Ac.673-1G%3EA&hg=38&bc=basic&distance=500&mask=0&ra=0" target="_blank">NM_000546.6(TP53):c.673-1G>A</a>)<br/>
+                    - Improved SpliceAI-10k output when SpliceAI predicts multiple acceptor/donor shifts (examples: <a href="https://spliceailookup.broadinstitute.org/#variant=NM_024675.4(PALB2)%3Ac.47A%3EG&hg=38&bc=basic&distance=500&mask=0&ra=0" target="_blank">NM_024675.4(PALB2):c.47A>G</a>, <a href="https://spliceailookup.broadinstitute.org/#variant=NM_000546.6(TP53)%3Ac.673-1G%3EA&hg=38&bc=basic&distance=500&mask=0&ra=0" target="_blank">NM_000546.6(TP53):c.673-1G>A</a>)<br/>
                     <br />
                     <b>May, 2026</b>
                     <br />
@@ -940,6 +944,12 @@
     // store user settings at the time of the last 'submit', as well as the resulting responses from the server
     let lastGenomeVersion, lastSpliceaiResponseJson, lastPangolinResponseJson
     let currentSubmissionId = 0
+
+    // Tracks position-only mode across submits so the delta-score checkbox state is
+    // captured/restored only on an actual normal <-> position-only transition (see
+    // updateControlsForPositionOnlyMode and updateVisualizationCheckboxes).
+    let wasPositionOnly = false
+    const deltaTrackCheckedBeforePositionOnly = {}  // name -> checked state captured at the transition into position-only mode
 
     // Escape HTML-unsafe characters in strings that are about to be interpolated
     // into template literals and injected via jQuery .html() / .after() / data-html.
@@ -2244,18 +2254,35 @@
     const updateControlsForPositionOnlyMode = (isPositionOnly) => {
         /* Grey out/relabel controls that have no effect on a position-only (REF-only)
          * search: "masked scores" and "REF & ALT scores" (mask is omitted from the API
-         * call and the REF/ALT columns are always hidden), and the Variant/delta-score
-         * IGV tracks (position-only has no ALT to compute a delta or variant track
-         * against). The "SpliceAI REF & ALT scores" IGV checkbox is relabeled since that
-         * track only ever shows REF (no ALT) in this mode. */
-        const inapplicableCheckboxes = $(
-            "input[name='mask'], input[name='show-ref-alt'], " +
-            "input[name='igv-variant'], input[name='igv-spliceai-delta-scores'], input[name='igv-pangolin-delta-scores']"
-        )
+         * call and the REF/ALT columns are always hidden), and the SpliceAI/Pangolin
+         * delta-score IGV tracks (position-only has no ALT to compute a delta against).
+         * The delta-score checkboxes are also unchecked while disabled so they don't
+         * look active for a track that isn't being rendered; their pre-position-only
+         * checked state is restored when returning to normal mode. The "SpliceAI REF &
+         * ALT scores" IGV checkbox is relabeled since that track only ever shows REF (no
+         * ALT) in this mode. The Variant track stays enabled and is relabeled
+         * "Ref. position" -- it renders a synthetic 1bp block at the queried position
+         * instead of a variant. */
+        const inapplicableCheckboxes = $("input[name='mask'], input[name='show-ref-alt']")
         inapplicableCheckboxes.closest(".ui.checkbox").checkbox(isPositionOnly ? "disable" : "enable")
+
+        const deltaTrackCheckboxes = $("input[name='igv-spliceai-delta-scores'], input[name='igv-pangolin-delta-scores']")
+        if (isPositionOnly) {
+            deltaTrackCheckboxes.each(function() {
+                $(this).data("checkedBeforePositionOnly", $(this).prop("checked"))
+            })
+            deltaTrackCheckboxes.closest(".ui.checkbox").checkbox("uncheck").checkbox("disable")
+        } else {
+            deltaTrackCheckboxes.closest(".ui.checkbox").checkbox("enable")
+            deltaTrackCheckboxes.each(function() {
+                if ($(this).data("checkedBeforePositionOnly")) $(this).closest(".ui.checkbox").checkbox("check")
+            })
+        }
 
         $("input[name='igv-spliceai-ref-alt']").siblings("label")
             .text(isPositionOnly ? "SpliceAI REF scores" : "SpliceAI REF & ALT scores")
+        $("input[name='igv-variant']").siblings("label")
+            .text(isPositionOnly ? "Ref. position" : "variant track")
     }
 
     const updateVisualizationCheckboxes = (readFromLocalStorage, genomeVersion) => {
@@ -2360,9 +2387,11 @@
         const variantPos = apiResponseJson.pos
         const variantRef = apiResponseJson.ref
         const variantAlt = apiResponseJson.alt
-        // REF-only (position-only) responses have no ref/alt -- no Variant track, no delta
-        // tracks (nothing to compute a delta against), and the SpliceAI REF track's
-        // description below drops all mentions of an ALT sequence.
+        // REF-only (position-only) responses have no ref/alt -- no delta tracks (nothing
+        // to compute a delta against), and the SpliceAI REF track's description below
+        // drops all mentions of an ALT sequence. The Variant track still renders, as a
+        // synthetic 1bp block at the queried position (see the isPositionOnly branch
+        // below) rather than a real variant.
         const isPositionOnly = !!apiResponseJson.isPositionOnly
         const variantOrPositionLabel = isPositionOnly
             ? `${chrom}:${variantPos}`
@@ -2415,29 +2444,43 @@
             height: 100,
         })
 
-        if (tracksToShow["igv-variant"] && !isPositionOnly) {
-            // For deletions, skip the anchor base by adding 1 to start
-            const isDeletion = variantRef.length > variantAlt.length
-            const variantStart = isDeletion ? variantPos : variantPos - 1
+        if (tracksToShow["igv-variant"]) {
+            // Real variant: for deletions, skip the anchor base by adding 1 to start.
+            // Position-only: no REF/ALT is known, so render a synthetic 1bp block
+            // spanning just the queried reference base instead of a variant.
+            const variantFeature = isPositionOnly
+                ? {
+                    chr: chrom,   //see createVCFVariant function in the igv.js repo for the allowed fields
+                    pos: variantPos,
+                    start: variantPos - 1,
+                    end: variantPos,
+                    referenceAllele: "N",
+                    alternateBases: "",
+                    names: ".", // id in VCF
+                    info: {
+                        variant: `${chrom}:${variantPos}`,
+                    }
+                }
+                : {
+                    chr: chrom,
+                    pos: variantPos,
+                    start: variantRef.length > variantAlt.length ? variantPos : variantPos - 1,
+                    end: variantPos + variantRef.length - 1,
+                    referenceAllele: variantRef,
+                    alternateBases: variantAlt,
+                    names: ".", // id in VCF
+                    info: {
+                        variant: `${chrom}-${variantPos}-${variantRef}-${variantAlt}`,
+                    }
+                }
             tracks.push({
-                name: "Variant",
+                name: isPositionOnly ? "Ref. position" : "Variant",
                 type: "vcf",
-                description: `This track shows the location of the <b>${chrom}:${variantPos} ${variantRef}>${variantAlt}</b> variant`,
+                description: isPositionOnly
+                    ? `This track shows the queried reference position <b>${chrom}:${variantPos}</b> (no ALT allele was specified)`
+                    : `This track shows the location of the <b>${chrom}:${variantPos} ${variantRef}>${variantAlt}</b> variant`,
                 height: 30,
-                features: [
-                    {
-                        chr: chrom,   //see createVCFVariant function in the igv.js repo for the allowed fields
-                        pos: variantPos,
-                        start: variantStart,
-                        end: variantPos + variantRef.length - 1,
-                        referenceAllele: variantRef,
-                        alternateBases: variantAlt,
-                        names: ".", // id in VCF
-                        info: {
-                            variant: `${chrom}-${variantPos}-${variantRef}-${variantAlt}`,
-                        }
-                    },
-                ],
+                features: [variantFeature],
             })
         }
 
@@ -2930,6 +2973,9 @@
 
     $(document).ready(() => {
         $("#gencode-version").text(GENCODE_VERSION)
+        if (window.location.hostname === "spliceailookup.broadinstitute.org") {
+            $("#ref-score-example-link").contents().unwrap()
+        }
         // init UI elements
         $(".ui.checkbox").checkbox()
         $(".question, .exclamation, .score-table").popup({"on": "click"})
