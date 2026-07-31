@@ -372,7 +372,7 @@
                     <br/>
                     <b>July 31st, 2026</b>
                     <br />
-                    - Can now search for chrom:position only to see REF scores (eg. <a id="ref-score-example-link" href="https://broadinstitute.github.io/SpliceAI-lookup-dev/index.html#variant=8%3A140300616&hg=38&bc=basic&distance=5000&mask=0&ra=0" target="_blank">chr8:140300616</a>)<br/>
+                    - Can now search for chrom:position to see REF scores (eg. <a id="ref-score-example-link" href="https://broadinstitute.github.io/SpliceAI-lookup-dev/index.html#variant=8%3A140300616&hg=38&bc=basic&distance=5000&mask=0&ra=0" target="_blank">chr8:140300616</a>)<br/>
                     <br />
                     <b>July 1st, 2026</b>
                     <br />
@@ -2266,18 +2266,29 @@
         const inapplicableCheckboxes = $("input[name='mask'], input[name='show-ref-alt']")
         inapplicableCheckboxes.closest(".ui.checkbox").checkbox(isPositionOnly ? "disable" : "enable")
 
-        const deltaTrackCheckboxes = $("input[name='igv-spliceai-delta-scores'], input[name='igv-pangolin-delta-scores']")
+        const deltaTrackNames = ["igv-spliceai-delta-scores", "igv-pangolin-delta-scores"]
+        const deltaTrackCheckboxes = $(deltaTrackNames.map((name) => `input[name='${name}']`).join(", "))
         if (isPositionOnly) {
-            deltaTrackCheckboxes.each(function() {
-                $(this).data("checkedBeforePositionOnly", $(this).prop("checked"))
-            })
+            if (!wasPositionOnly) {
+                // Capture only on the actual normal -> position-only transition, not on
+                // every position-only submit -- otherwise a second consecutive
+                // position-only search would re-capture the already-unchecked state and
+                // clobber the real preference (see updateVisualizationCheckboxes for how
+                // this captured value also keeps localStorage from being corrupted).
+                for (const name of deltaTrackNames) {
+                    deltaTrackCheckedBeforePositionOnly[name] = $(`input[name='${name}']`).prop("checked")
+                }
+            }
             deltaTrackCheckboxes.closest(".ui.checkbox").checkbox("uncheck").checkbox("disable")
         } else {
             deltaTrackCheckboxes.closest(".ui.checkbox").checkbox("enable")
-            deltaTrackCheckboxes.each(function() {
-                if ($(this).data("checkedBeforePositionOnly")) $(this).closest(".ui.checkbox").checkbox("check")
-            })
+            for (const name of deltaTrackNames) {
+                if (deltaTrackCheckedBeforePositionOnly[name]) {
+                    $(`input[name='${name}']`).closest(".ui.checkbox").checkbox("check")
+                }
+            }
         }
+        wasPositionOnly = isPositionOnly
 
         $("input[name='igv-spliceai-ref-alt']").siblings("label")
             .text(isPositionOnly ? "SpliceAI REF scores" : "SpliceAI REF & ALT scores")
@@ -2328,7 +2339,14 @@
             // retrieve state from checkboxes
             tracksToShow = {}
             for (const name of ["igv-variant", "igv-spliceai-ref-alt", "igv-spliceai-delta-scores", "igv-pangolin-delta-scores", "igv-gencode-genes"]) {
-                tracksToShow[name] = $(`input[name='${name}']`).prop("checked")
+                // The delta-score checkboxes are forced unchecked in the UI while in
+                // position-only mode (see updateControlsForPositionOnlyMode) -- that's not
+                // the user's real preference, so use the captured pre-position-only value
+                // instead of the live (forced) DOM state to avoid persisting it to
+                // localStorage and silently overwriting what the user actually chose.
+                tracksToShow[name] = (wasPositionOnly && name in deltaTrackCheckedBeforePositionOnly)
+                    ? deltaTrackCheckedBeforePositionOnly[name]
+                    : $(`input[name='${name}']`).prop("checked")
             }
             for (const name of ["igv-100-mer-mappability", "igv-segdups", "igv-mane-genes"]) {
                 // these tracks are not available for hg37
