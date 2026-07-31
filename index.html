@@ -2268,13 +2268,16 @@
 
         const deltaTrackNames = ["igv-spliceai-delta-scores", "igv-pangolin-delta-scores"]
         const deltaTrackCheckboxes = $(deltaTrackNames.map((name) => `input[name='${name}']`).join(", "))
+        // Only capture/restore on the actual mode transition, not on every call -- a call
+        // where the mode is unchanged from the previous one (position-only -> position-only,
+        // or normal -> normal) must leave the checkboxes exactly as the user last set them.
+        const enteringPositionOnly = isPositionOnly && !wasPositionOnly
+        const leavingPositionOnly = !isPositionOnly && wasPositionOnly
         if (isPositionOnly) {
-            if (!wasPositionOnly) {
-                // Capture only on the actual normal -> position-only transition, not on
-                // every position-only submit -- otherwise a second consecutive
-                // position-only search would re-capture the already-unchecked state and
-                // clobber the real preference (see updateVisualizationCheckboxes for how
-                // this captured value also keeps localStorage from being corrupted).
+            if (enteringPositionOnly) {
+                // Capture the real preference before forcing these checkboxes off, so it
+                // can be restored later (see updateVisualizationCheckboxes for how this
+                // captured value also keeps localStorage from being corrupted while unchecked).
                 for (const name of deltaTrackNames) {
                     deltaTrackCheckedBeforePositionOnly[name] = $(`input[name='${name}']`).prop("checked")
                 }
@@ -2282,9 +2285,11 @@
             deltaTrackCheckboxes.closest(".ui.checkbox").checkbox("uncheck").checkbox("disable")
         } else {
             deltaTrackCheckboxes.closest(".ui.checkbox").checkbox("enable")
-            for (const name of deltaTrackNames) {
-                if (deltaTrackCheckedBeforePositionOnly[name]) {
-                    $(`input[name='${name}']`).closest(".ui.checkbox").checkbox("check")
+            if (leavingPositionOnly) {
+                for (const name of deltaTrackNames) {
+                    if (deltaTrackCheckedBeforePositionOnly[name]) {
+                        $(`input[name='${name}']`).closest(".ui.checkbox").checkbox("check")
+                    }
                 }
             }
         }
