@@ -370,9 +370,9 @@
                 <div>
                     <a href="https://github.com/broadinstitute/SpliceAI-lookup/issues" target="_blank">SpliceAI-lookup/issues</a>: issues or feature requests for this website<br />
                     <br/>
-                    <b>July 31st, 2026</b>
+                    <b>August 7th, 2026</b>
                     <br />
-                    - Can now search for chrom:position to see REF scores (eg. <a id="ref-score-example-link" href="https://broadinstitute.github.io/SpliceAI-lookup-dev/index.html#variant=8%3A140300616&hg=38&bc=basic&distance=5000&mask=0&ra=0">chr8:140300616</a>)<br/>
+                    - Can now search for chrom:position to see REF scores (eg. <a href="https://spliceailookup.broadinstitute.org/#variant=8%3A140300616&hg=38&bc=basic&distance=5000&mask=0&ra=0">chr8:140300616</a>)<br/>
                     <br />
                     <b>July 1st, 2026</b>
                     <br />
@@ -708,7 +708,10 @@
 
     // Matches a bare chrom+pos with no ref/alt (e.g. "chr8:140300615", "chr8 140300615",
     // "chr8-140300615") -- requests REF-only scores instead of REF-vs-ALT delta scores.
-    // Checked only after VARIANT_RE fails to match, so a full variant is never misparsed.
+    // Anchored at both ends, which is the only thing keeping a full chrom-pos-ref-alt
+    // variant off the REF-only path: handleSubmit tests this pattern first and never
+    // consults VARIANT_RE, so a full variant is excluded solely because its trailing
+    // -REF-ALT leaves the "[\s]*$" anchor unsatisfied. Do not loosen that anchor.
     const POSITION_ONLY_RE = new RegExp(
         "^[\\s]*" +
         "(chr)?([0-9XYMTt]{1,2})" +
@@ -3057,9 +3060,6 @@
 
     $(document).ready(() => {
         $("#gencode-version").text(GENCODE_VERSION)
-        if (window.location.hostname === "spliceailookup.broadinstitute.org") {
-            $("#ref-score-example-link").contents().unwrap()
-        }
         // init UI elements
         $(".ui.checkbox").checkbox()
         $(".question, .exclamation, .score-table").popup({"on": "click"})
