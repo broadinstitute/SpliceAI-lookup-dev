@@ -61,6 +61,18 @@
         gtag('config', 'G-483HVKZCL1');
     </script>
     <style>
+        /* Keep the per-position table's header visible while its rows scroll underneath. The
+           sticky offset is relative to #per-position-modal-content, which is the scrolling
+           ancestor. An explicit background is required because the rows would otherwise show
+           through the header as they pass behind it, and Semantic UI's own header background
+           comes from a rule that does not apply once the cells are position:sticky. */
+        #per-position-modal-content thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: #F9FAFB;
+        }
+
         :root {
             --MAIN_TRANSCRIPT_BACKGROUND_COLOR: #eaf3ff;
             --CODING_TRANSCRIPT_BACKGROUND_COLOR: white;
@@ -707,13 +719,7 @@
         </button>
     </div>
     <div id="per-position-modal-content" class="scrolling content"></div>
-    <!-- Outside the scrolling content so the button stays put instead of scrolling away with
-         the table, which can be thousands of rows long. -->
-    <div class="actions" style="text-align:left">
-        <button id="per-position-visualize-button" class="ui primary tiny button">
-            <i class="chart bar icon"></i>Visualize
-        </button>
-    </div>
+</div>
 
 <script>
 	const GENCODE_VERSION = "v49"
@@ -1557,7 +1563,12 @@
                         </tr>
                     </thead>
                     <tbody>${bodyRows.join("")}</tbody>
-                </table>`
+                </table>
+                <div style="padding: 5px 0 10px 0">
+                    <button id="per-position-visualize-button" class="ui primary tiny button">
+                        <i class="chart bar icon"></i>Visualize
+                    </button>
+                </div>`
     }
 
     const perPositionRowsToCsv = (rows, context) => {
@@ -3316,7 +3327,9 @@
             openPerPositionModal($(this).attr("data-icon-id"))
         })
 
-        $("#per-position-visualize-button").click(() => {
+        // Delegated: the button is part of the table markup, so it is recreated every time a
+        // modal is opened and a direct binding would attach to an element already thrown away.
+        $(document).on("click", "#per-position-visualize-button", () => {
             // Run after the modal has finished hiding: Semantic UI keeps the page unscrollable
             // while a modal is up, so scrolling before then would be undone. onHidden is set
             // through the settings API rather than by re-initialising the modal, which would
