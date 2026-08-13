@@ -1124,6 +1124,11 @@
         $box.show()
     }
 
+    // Largest "Max distance" the API accepts (server.py MAX_DISTANCE_LIMIT). Keep the two in
+    // sync: without this check the API rejects an over-limit value with a 400 for both SpliceAI
+    // and Pangolin, which reads to the user as the site being broken rather than as bad input.
+    const MAX_DISTANCE_LIMIT = 10000
+
     const ENSEMBL_TIMEOUT_MS = 90000  // 90 second timeout for Ensembl API calls
     const VARIANTVALIDATOR_TIMEOUT_MS = 30000  // 30 second timeout for the VariantValidator fallback
     // Guidance appended to variant-resolution errors when HGVS lookup is unavailable.
@@ -1583,17 +1588,36 @@
            own position, and the splice-site note. The API reports only the positions that cleared
            the model's threshold, plus the variant's own position, so the rows are not contiguous
            and the positionDelta column is what shows where the holes are. */
+        /* An insertion's inserted bases have no genomic coordinates, so the model summarizes any
+           score inside them onto the variant's own position and reports the true offset
+           separately in SCORES_FOR_INSERTED_BASES. The main results table substitutes that offset
+           for the reported 0 ("+N bp position within the inserted sequence", see
+           updatePositionAccountingForInsertedBases), which this table cannot do because its rows
+           are genomic. Note the variant row instead, so its "0 bp" is not read as "the effect is
+           at this base" when the main table is showing a different number for the same effect. */
+        const isInsertionWithInsertedBaseScores = (context.scores["SCORES_FOR_INSERTED_BASES"] || []).length > 0
         return rows.map((row) => {
             const pos = parseInt(row.pos)
             return {
                 ...row,
                 pos: pos,
                 isVariant: pos == context.variantPos,
-                // signed genomic offset, the same quantity the main results table's position
-                // column shows (SpliceAI's DP_AG/DP_AL/DP_DG/DP_DL, Pangolin's DP_SL/DP_SG), so
-                // the two tables agree row for row
+                /* Signed genomic offset, the same quantity the main results table's position
+                   column shows (SpliceAI's DP_AG/DP_AL/DP_DG/DP_DL, Pangolin's DP_SL/DP_SG), so
+                   the two tables can be read against each other row by row.
+                   One case where they deliberately differ: for an insertion whose gain falls
+                   inside the inserted sequence, the model reports the offset as 0 and the main
+                   table substitutes "+N bp position within the inserted sequence"
+                   (updatePositionAccountingForInsertedBases). The inserted bases have no genomic
+                   coordinate of their own, so every row here is anchored at the variant position
+                   and that row reads "0 bp". */
                 positionDelta: pos - context.variantPos,
-                note: [pos == context.variantPos ? "variant" : "", getExonNoteForPosition(pos, context.scores)].filter(Boolean).join("; "),
+                note: [
+                    pos == context.variantPos ? "variant" : "",
+                    pos == context.variantPos && isInsertionWithInsertedBaseScores
+                        ? "scores inside the inserted bases are summarized here" : "",
+                    getExonNoteForPosition(pos, context.scores),
+                ].filter(Boolean).join("; "),
             }
         })
     }
@@ -1628,7 +1652,8 @@
                     <tbody>${bodyRows.join("")}</tbody>
                 </table>
                 <div style="padding: 5px 0 10px 0">
-                    <button id="per-position-visualize-button" class="ui primary tiny button">
+                    <button id="per-position-visualize-button" class="ui primary tiny button"
+                            title="Go to the visualization section below. It draws the transcript the search selected, which is not necessarily this one.">
                         <i class="chart bar icon"></i>Visualize
                     </button>
                 </div>`
@@ -1637,15 +1662,18 @@
     const perPositionRowsToCsv = (rows, context) => {
         const columns = PER_POSITION_COLUMNS[context.tool]
         const deltaColumns = PER_POSITION_DELTA_COLUMNS[context.tool]
+        // Delta columns first, then the raw REF and ALT scores, matching the order
+        // renderPerPositionTable draws. The two build their cells separately (the table styles the
+        // two kinds differently), so a reorder in one has to be repeated in the other.
         // "Δ" is replaced rather than carried into the header so the column names stay ASCII,
         // which spreadsheet imports handle more predictably than a non-ASCII byte.
-        const header = [...columns, ...deltaColumns].map(([label]) =>
+        const header = [...deltaColumns, ...columns].map(([label]) =>
             label.toLowerCase().replace(/Δ/gi, "delta").replace(/[()]/g, "").trim().replace(/ +/g, "_"))
         const lines = [["chrom", "position", "position_delta", "ref", "alt", ...header, "notes"].join(",")]
         for (const row of buildPerPositionRows(rows, context)) {
             lines.push([withChrPrefix(context.chrom), row.pos, row.positionDelta, row.ref, row.alt,
-                        ...columns.map(([, key]) => row[key]),
                         ...deltaColumns.map(([, compute]) => compute(row)),
+                        ...columns.map(([, key]) => row[key]),
                         `"${row.note}"`].join(","))
         }
 
@@ -3106,8 +3134,21 @@
         // rejected input doesn't supersede (and orphan the loading state of) a search
         // that's still in flight.
         if (!variant) return
+        // showError only appends to #error-box, and these checks return before the box is
+        // cleared further down, so without this a second rejected submit would stack another
+        // copy of the message under the first.
+        $("#error-box").hide().html("")
         if (variant.length > 10000) {
             showError("Input cannot be larger than 10,000 characters")
+            return
+        }
+        // Read up here with the other input checks, rather than alongside the remaining form
+        // fields below, so an out-of-range distance is rejected before the submission id is
+        // bumped. The regex also rejects a blank or non-numeric box, which the API answers with
+        // the same 400 as an over-limit value.
+        const maxDistance = $("#max-distance-input").val().trim()
+        if (!/^\d+$/.test(maxDistance) || parseInt(maxDistance) > MAX_DISTANCE_LIMIT) {
+            showError(`"Max distance" must be a whole number between 0 and ${MAX_DISTANCE_LIMIT.toLocaleString()}bp`)
             return
         }
 
@@ -3128,7 +3169,6 @@
 
         const genomeVersion = $("input[name='hg']:checked").val().trim()
         const basicOrComprehensive = $("input[name='gencode-gene-set']:checked").val().trim()
-        const maxDistance = $("#max-distance-input").val().trim()
         const mask = $(`input[name='mask']`).prop("checked") ? "1" : "0";
         const showRefAltColumns = $(`input[name='show-ref-alt']`).prop("checked") ? "1" : "0";
 
@@ -3402,7 +3442,12 @@
             // while a modal is up, so scrolling before then would be undone. onHidden is set
             // through the settings API rather than by re-initialising the modal, which would
             // rebind the shared handler that `$(".ui.modal").modal()` installs for every modal.
-            $("#per-position-modal").modal("setting", "onHidden", () => {
+            $("#per-position-modal").modal("setting", "onHidden", function() {
+                // Clear the callback before doing anything else. "setting" writes into the live
+                // modal instance's settings object, which persists, so without this every later
+                // close of this modal -- the X, Escape, a click outside -- would scroll the page
+                // to the visualization as if Visualize had been clicked again.
+                $("#per-position-modal").modal("setting", "onHidden", function() {})
                 // Reuse the Show button's own handler rather than repeating what it does, so
                 // this cannot drift from it. Clicking it again when the browser is already open
                 // would re-run updateIgvBrowser for no reason, hence the visibility check.
