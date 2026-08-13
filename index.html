@@ -1578,38 +1578,30 @@
     }
 
     const buildPerPositionRows = (rows, context) => {
-        /* Interleave the score rows returned by the API with a gap row wherever the table skips
-           any positions at all, so a jump is never mistaken for adjacency. The API reports only
-           the positions that cleared the model's threshold, plus the variant's own position, so
-           holes are expected and common. Both the table and the CSV render from this. */
-        const rowsToRender = []
-        let previousPos = null
-        for (const row of rows) {
+        /* Annotate the score rows returned by the API with what the table and the CSV both need
+           and the API does not send: the offset from the variant, whether this is the variant's
+           own position, and the splice-site note. The API reports only the positions that cleared
+           the model's threshold, plus the variant's own position, so the rows are not contiguous
+           and the positionDelta column is what shows where the holes are. */
+        return rows.map((row) => {
             const pos = parseInt(row.pos)
-            if (previousPos !== null && pos > previousPos + 1) {
-                rowsToRender.push({isGap: true, nSkipped: pos - previousPos - 1})
-            }
-            rowsToRender.push({
+            return {
                 ...row,
                 pos: pos,
                 isVariant: pos == context.variantPos,
+                // signed genomic offset, the same quantity the main results table's position
+                // column shows (SpliceAI's DP_AG/DP_AL/DP_DG/DP_DL, Pangolin's DP_SL/DP_SG), so
+                // the two tables agree row for row
+                positionDelta: pos - context.variantPos,
                 note: [pos == context.variantPos ? "variant" : "", getExonNoteForPosition(pos, context.scores)].filter(Boolean).join("; "),
-            })
-            previousPos = pos
-        }
-
-        return rowsToRender
+            }
+        })
     }
 
     const renderPerPositionTable = (rows, context) => {
         const columns = PER_POSITION_COLUMNS[context.tool]
         const deltaColumns = PER_POSITION_DELTA_COLUMNS[context.tool]
         const bodyRows = buildPerPositionRows(rows, context).map((row) => {
-            if (row.isGap) {
-                return `<tr><td style="text-align:center; color:#888888">&#8212;&nbsp;${Number(row.nSkipped).toLocaleString()}bp span&nbsp;&#8212;</td>
-                            <td></td>${[...deltaColumns, ...columns].map(() => `<td ${getScoreStyle(0)}>0</td>`).join("")}</tr>`
-            }
-
             // escapeHtml every backend-supplied field: this markup goes through jQuery.html().
             // Built as one string and escaped once, which also turns the '>' into &gt;.
             const boldIfVariant = row.isVariant ? "font-weight:bold;" : ""
@@ -1617,6 +1609,7 @@
                 + (row.isVariant ? ` > ${row.alt}` : "")
             return `<tr class="${row.isVariant ? "per-position-variant-row" : ""}">
                         <td style="white-space:nowrap; ${boldIfVariant}">${escapeHtml(locus)}</td>
+                        <td style="white-space:nowrap">${row.positionDelta} bp</td>
                         <td>${escapeHtml(row.note)}</td>
                         ${deltaColumns.map(([, compute]) => { const d = compute(row); return `<td ${getScoreStyle(d)}>${d}</td>` }).join("")}
                         ${columns.map(([, key]) => `<td ${getRawScoreStyle(row[key])}>${parseFloat(row[key])}</td>`).join("")}
@@ -1627,6 +1620,7 @@
                     <thead>
                         <tr style="text-align:center">
                             <th>chrom:pos ref (&gt; alt)</th>
+                            <th style="width:1%"><span style="white-space:nowrap">position &#916;</span></th>
                             <th style="width:1%">notes</th>
                             ${[...deltaColumns, ...columns].map(([label]) => `<th style="width:1%">${headerLabelHtml(label)}</th>`).join("")}
                         </tr>
@@ -1647,12 +1641,9 @@
         // which spreadsheet imports handle more predictably than a non-ASCII byte.
         const header = [...columns, ...deltaColumns].map(([label]) =>
             label.toLowerCase().replace(/Δ/gi, "delta").replace(/[()]/g, "").trim().replace(/ +/g, "_"))
-        const lines = [["chrom", "position", "ref", "alt", ...header, "notes"].join(",")]
+        const lines = [["chrom", "position", "position_delta", "ref", "alt", ...header, "notes"].join(",")]
         for (const row of buildPerPositionRows(rows, context)) {
-            if (row.isGap) {
-                continue
-            }
-            lines.push([withChrPrefix(context.chrom), row.pos, row.ref, row.alt,
+            lines.push([withChrPrefix(context.chrom), row.pos, row.positionDelta, row.ref, row.alt,
                         ...columns.map(([, key]) => row[key]),
                         ...deltaColumns.map(([, compute]) => compute(row)),
                         `"${row.note}"`].join(","))
