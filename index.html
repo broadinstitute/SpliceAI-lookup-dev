@@ -707,7 +707,13 @@
         </button>
     </div>
     <div id="per-position-modal-content" class="scrolling content"></div>
-</div>
+    <!-- Outside the scrolling content so the button stays put instead of scrolling away with
+         the table, which can be thousands of rows long. -->
+    <div class="actions" style="text-align:left">
+        <button id="per-position-visualize-button" class="ui primary tiny button">
+            <i class="chart bar icon"></i>Visualize
+        </button>
+    </div>
 
 <script>
 	const GENCODE_VERSION = "v49"
@@ -3308,6 +3314,22 @@
         // delegated so it keeps working for the icons added by each new search
         $(document).on("click", ".per-position-table-icon:not(.per-position-table-icon-disabled)", function() {
             openPerPositionModal($(this).attr("data-icon-id"))
+        })
+
+        $("#per-position-visualize-button").click(() => {
+            // Run after the modal has finished hiding: Semantic UI keeps the page unscrollable
+            // while a modal is up, so scrolling before then would be undone. onHidden is set
+            // through the settings API rather than by re-initialising the modal, which would
+            // rebind the shared handler that `$(".ui.modal").modal()` installs for every modal.
+            $("#per-position-modal").modal("setting", "onHidden", () => {
+                // Reuse the Show button's own handler rather than repeating what it does, so
+                // this cannot drift from it. Clicking it again when the browser is already open
+                // would re-run updateIgvBrowser for no reason, hence the visibility check.
+                if (!$("#igv-div").is(":visible")) {
+                    $("#show-igv-button").click()
+                }
+                document.getElementById("igv-table").scrollIntoView({behavior: "smooth", block: "start"})
+            }).modal("hide")
         })
 
         $("#search-box, #max-distance-input").keydown((event) => {
