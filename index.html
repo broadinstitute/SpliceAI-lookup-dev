@@ -1148,9 +1148,11 @@
     // 4,094 bytes with its own HTML "Bad Request" page. That page carries no JSON, so the UI
     // has nothing to report and the user sees a generic failure. The request line is
     // "GET /<tool>/?<query> HTTP/1.1", which leaves 4,070 bytes for the query string; 4,000
-    // keeps a margin. The variant travels twice in every API URL (normalized in "variant=",
-    // verbatim in "raw="), so a typed variant can use at most half that budget. Both limits
-    // verified against production: a 1,900 character variant reaches the server, 1,980 does not.
+    // keeps a margin, and also covers the longer "/<tool>/scores/?<query>&transcript=..."
+    // form that reuses the same query string. The variant travels twice in every API URL
+    // (normalized in "variant=", verbatim in "raw="), so a typed variant can use at most half
+    // that budget. Both limits verified against production: a 1,900 character variant reaches
+    // the server, 1,980 does not.
     const MAX_QUERY_STRING_LENGTH = 4000
     const MAX_VARIANT_LENGTH = 1900
 
@@ -1908,6 +1910,17 @@
         const urlArgs = isPositionOnly
             ? `hg=${enc(genomeVersion)}&bc=${enc(basicOrComprehensive)}&distance=${enc(maxDistance)}&variant=${enc(`${chrom}-${pos}`)}&raw=${enc(variant)}`
             : `hg=${enc(genomeVersion)}&bc=${enc(basicOrComprehensive)}&distance=${enc(maxDistance)}&mask=${enc(mask)}&variant=${enc(`${chrom}-${pos}-${ref}-${alt}`)}&raw=${enc(variant)}&variant_consequence=${enc(variantConsequence)}`
+
+        // The MAX_VARIANT_LENGTH check in handleSubmit covers a variant typed or pasted as
+        // genomic coordinates, but an HGVS input is short until Ensembl resolves it, so a
+        // multi-kb deletion written as "NM_...:c.1_3000del" gets past it. Check the URL this
+        // call actually builds too, so that case reports the real reason rather than letting
+        // gunicorn answer with an HTML page the UI can't read.
+        if (urlArgs.length > MAX_QUERY_STRING_LENGTH) {
+            throw Error(`This variant is too long for the ${tool} API: its REF and ALT alleles make the `
+                + `request ${urlArgs.length.toLocaleString()} characters, over the `
+                + `${MAX_QUERY_STRING_LENGTH.toLocaleString()} character limit.`)
+        }
 
         let apiResponse
         try {
@@ -3174,8 +3187,9 @@
         // cleared further down, so without this a second rejected submit would stack another
         // copy of the message under the first.
         $("#error-box").hide().html("")
-        if (variant.length > 10000) {
-            showError("Input cannot be larger than 10,000 characters")
+        if (variant.length > MAX_VARIANT_LENGTH) {
+            showError(`Input variant is ${variant.length.toLocaleString()} characters which exceeds `
+                + `the API's request size limit of ${MAX_VARIANT_LENGTH.toLocaleString()} characters.`)
             return
         }
         // Read up here with the other input checks, rather than alongside the remaining form
