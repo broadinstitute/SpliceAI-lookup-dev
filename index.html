@@ -72,16 +72,9 @@
         gtag('config', 'G-483HVKZCL1');
     </script>
 
-    <!-- Microsoft Clarity. Same project id as the production site, so dev sessions land in the
-         same Clarity dataset and have to be told apart there by hostname (this page is served
-         from broadinstitute.github.io/SpliceAI-lookup-dev). -->
-    <script type="text/javascript">
-        (function(c,l,a,r,i,t,y){
-            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-        })(window, document, "clarity", "script", "xzpoa4bube");
-    </script>
+    <!-- No Microsoft Clarity tag here on purpose. The production copy carries one, but it would
+         report into the same Clarity project, so dev browsing would show up as real user
+         sessions. Keep it production-only. -->
     <style>
         /* Keep the per-position table's header visible while its rows scroll underneath. The
            sticky offset is relative to #per-position-modal-content, which is the scrolling
@@ -1150,6 +1143,16 @@
     // sync: without this check the API rejects an over-limit value with a 400 for both SpliceAI
     // and Pangolin, which reads to the user as the site being broken rather than as bad input.
     const MAX_DISTANCE_LIMIT = 10000
+
+    // gunicorn, the WSGI server in front of the API, rejects any request line longer than
+    // 4,094 bytes with its own HTML "Bad Request" page. That page carries no JSON, so the UI
+    // has nothing to report and the user sees a generic failure. The request line is
+    // "GET /<tool>/?<query> HTTP/1.1", which leaves 4,070 bytes for the query string; 4,000
+    // keeps a margin. The variant travels twice in every API URL (normalized in "variant=",
+    // verbatim in "raw="), so a typed variant can use at most half that budget. Both limits
+    // verified against production: a 1,900 character variant reaches the server, 1,980 does not.
+    const MAX_QUERY_STRING_LENGTH = 4000
+    const MAX_VARIANT_LENGTH = 1900
 
     const ENSEMBL_TIMEOUT_MS = 90000  // 90 second timeout for Ensembl API calls
     const VARIANTVALIDATOR_TIMEOUT_MS = 30000  // 30 second timeout for the VariantValidator fallback
