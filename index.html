@@ -1739,9 +1739,13 @@
         return `<table class="ui celled table">
                     <thead>
                         <tr style="text-align:center">
-                            <th>chrom:pos ref (&gt; alt)</th>
+                            <!-- width:1% shrinks a column to its content, so whichever column
+                                 omits it absorbs the table's slack. That is notes: its values
+                                 ("exon 10 acceptor") are the only ones that wrap, and the locus
+                                 column is nowrap anyway, so slack there is just dead space. -->
+                            <th style="width:1%">chrom:pos ref (&gt; alt)</th>
                             <th style="width:1%"><span style="white-space:nowrap">position &#916;</span></th>
-                            <th style="width:1%">notes</th>
+                            <th>notes</th>
                             ${[...deltaColumns, ...columns].map(([label]) => `<th style="width:1%">${headerLabelHtml(label)}</th>`).join("")}
                         </tr>
                     </thead>
