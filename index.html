@@ -12,12 +12,20 @@
         //    baseApiUrl = location.origin
         //}
 
+        // Each service answers for one genome and one Gencode gene set, so the key is
+        // "<tool>-<hg>" for the basic gene set and "<tool>-<hg>-comprehensive" for the other.
+        // The basic services kept their original names when the comprehensive ones were split
+        // out, which is why only half of these carry a suffix.
         const baseApiUrl = {
             "normalize": "https://liftover-xwkwwwxdwq-uc.a.run.app",
             "pangolin-37": "https://pangolin-37-xwkwwwxdwq-uc.a.run.app",
             "pangolin-38": "https://pangolin-38-xwkwwwxdwq-uc.a.run.app",
             "spliceai-37": "https://spliceai-37-xwkwwwxdwq-uc.a.run.app",
             "spliceai-38": "https://spliceai-38-xwkwwwxdwq-uc.a.run.app",
+            "pangolin-37-comprehensive": "https://pangolin-37-comprehensive-xwkwwwxdwq-uc.a.run.app",
+            "pangolin-38-comprehensive": "https://pangolin-38-comprehensive-xwkwwwxdwq-uc.a.run.app",
+            "spliceai-37-comprehensive": "https://spliceai-37-comprehensive-xwkwwwxdwq-uc.a.run.app",
+            "spliceai-38-comprehensive": "https://spliceai-38-comprehensive-xwkwwwxdwq-uc.a.run.app",
         }
 
         // Route spliceai/pangolin requests to their 'dev'-tagged Cloud Run
@@ -35,7 +43,10 @@
         )
         const _apiMatch = window.location.hash.match(/[?&#]api=([^&#]*)/)
         if (_servedFromDevSite || (_apiMatch && _apiMatch[1] === "dev")) {
-            for (const k of ["pangolin-37", "pangolin-38", "spliceai-37", "spliceai-38"]) {
+            for (const k of Object.keys(baseApiUrl)) {
+                // 'normalize' (liftover) is skipped because build_and_deploy.py doesn't manage
+                // that service, so it has no dev-tagged revision to point at.
+                if (k === "normalize") continue
                 baseApiUrl[k] = baseApiUrl[k].replace(/^https:\/\//, "https://dev---")
             }
             console.log("Routing spliceai/pangolin requests to dev revisions:", baseApiUrl)
@@ -59,6 +70,17 @@
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', 'G-483HVKZCL1');
+    </script>
+
+    <!-- Microsoft Clarity. Same project id as the production site, so dev sessions land in the
+         same Clarity dataset and have to be told apart there by hostname (this page is served
+         from broadinstitute.github.io/SpliceAI-lookup-dev). -->
+    <script type="text/javascript">
+        (function(c,l,a,r,i,t,y){
+            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", "xzpoa4bube");
     </script>
     <style>
         /* Keep the per-position table's header visible while its rows scroll underneath. The
@@ -1870,7 +1892,11 @@
         const ref = variantTokens[2]
         const alt = variantTokens[3]
 
-        const baseUrl = baseApiUrl[`${tool.toLowerCase()}-${genomeVersion}`]
+        // Route to the service that holds this gene set: each one loads only its own. Sending
+        // the wrong one still works (the backend 307-redirects to its sibling for the sake of
+        // older API clients), but routing correctly here avoids the extra round trip.
+        const baseUrl = baseApiUrl[`${tool.toLowerCase()}-${genomeVersion}`
+            + (basicOrComprehensive === "comprehensive" ? "-comprehensive" : "")]
         // encodeURIComponent every value so a '&', '#', or '=' in (e.g.) a
         // user-entered variant or Ensembl-returned consequence string cannot
         // inject extra query params or smuggle attacker-controlled strings
