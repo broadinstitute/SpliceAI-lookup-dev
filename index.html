@@ -92,8 +92,33 @@
            the table's top margin sit above that line, leaving a band that rows scroll up through
            before they reach the header. Removing both closes it so the header meets the modal
            heading. The side and bottom padding are left alone, so only the gap is affected. */
+        /* min-height and max-height are deliberately the same value, so the modal is the size it
+           will end up at from the moment it opens: without the min-height it opens just tall
+           enough for the spinner and then jumps to full height when the rows arrive.
+           The expression is copied from Semantic UI's own rule for .ui.modal .scrolling.content,
+           and the unit matters: em resolves against this element's font-size, which is what that
+           rule is written against. rem would agree only while the root font-size happens to equal
+           this element's, and would silently resize the modal if either ever changed. */
         #per-position-modal-content {
             padding-top: 0;
+            min-height: calc(80vh - 10em);
+            max-height: calc(80vh - 10em);
+        }
+
+        /* Applied whenever the container holds a single short thing rather than the table: the
+           loading spinner, or an error message. Without it the fixed height above would strand a
+           one-line message in the top-left corner of an otherwise empty 80vh box. It is a class
+           rather than a permanent rule because flex on a scrolling table container would change
+           how the rows lay out.
+           The bottom padding goes too, because the rule above already removed the top padding and
+           flex centers within the content box: with padding on one side only, the content lands
+           half that padding above the true middle. Box-sizing is border-box here, so dropping it
+           does not change the height. */
+        #per-position-modal-content.per-position-centered {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-bottom: 0;
         }
 
         #per-position-modal-content > table {
@@ -741,9 +766,17 @@
     <i class="close icon"></i>
     <div class="header">
         <span id="per-position-modal-heading"></span>
-        <button id="per-position-download-button" class="ui tiny basic button" style="float:right; margin-right:30px">
-            <i class="download icon"></i>Download CSV
-        </button>
+        <!-- Both buttons float as one block so they keep their left-to-right order. Floating them
+             individually would reverse it, since the first floated element lands furthest right. -->
+        <span style="float:right; margin-right:30px">
+            <button id="per-position-download-button" class="ui tiny basic button">
+                <i class="download icon"></i>Download CSV
+            </button>
+            <button id="per-position-visualize-button" class="ui primary tiny button"
+                    title="Go to the visualization section below. It draws the transcript the search selected, which is not necessarily this one.">
+                <i class="chart bar icon"></i>Visualize
+            </button>
+        </span>
     </div>
     <div id="per-position-modal-content" class="scrolling content"></div>
 </div>
@@ -1684,13 +1717,7 @@
                         </tr>
                     </thead>
                     <tbody>${bodyRows.join("")}</tbody>
-                </table>
-                <div style="padding: 5px 0 10px 0">
-                    <button id="per-position-visualize-button" class="ui primary tiny button"
-                            title="Go to the visualization section below. It draws the transcript the search selected, which is not necessarily this one.">
-                        <i class="chart bar icon"></i>Visualize
-                    </button>
-                </div>`
+                </table>`
     }
 
     const perPositionRowsToCsv = (rows, context) => {
@@ -1740,8 +1767,17 @@
         const submissionId = currentSubmissionId
 
         $("#per-position-modal-heading").text(`${context.geneName}  ${context.transcriptId}  (${context.strand} strand)`)
-        $("#per-position-download-button").hide()
-        $("#per-position-modal-content").html(`<div class="ui active inline loader"></div>`)
+        // Both header buttons are hidden until the modal has content, so the header does not
+        // offer actions over an empty box while loading or after a failure. Download genuinely
+        // needs the table -- it serializes the rows. Visualize does not: it scrolls to the IGV
+        // section, which draws the transcript the search selected from the main response. It is
+        // hidden anyway, so the two appear together rather than one materializing later.
+        $("#per-position-download-button, #per-position-visualize-button").hide()
+        // per-position-centered stays on until a table is actually painted, so the spinner and
+        // any error message both sit in the middle of the fixed-height box rather than in its
+        // top-left corner.
+        $("#per-position-modal-content").addClass("per-position-centered")
+            .html(`<div class="ui active inline loader"></div>`)
         $("#per-position-modal").modal("show")
 
         let response
@@ -1768,7 +1804,9 @@
         }
 
         const rows = response.rows || []
-        $("#per-position-modal-content").html(renderPerPositionTable(rows, context))
+        $("#per-position-modal-content").removeClass("per-position-centered")
+            .html(renderPerPositionTable(rows, context))
+        $("#per-position-visualize-button").show()
         $("#per-position-download-button").show().off("click").on("click", () => downloadCsv(
             `${context.tool}_${context.chrom}-${context.variantPos}-${context.ref}-${context.alt}_${context.transcriptId}.csv`,
             perPositionRowsToCsv(rows, context)))
@@ -1795,7 +1833,7 @@
         }
 
         return `<i class="table icon per-position-table-icon" data-icon-id="${escapeHtml(iconId)}" data-position="left center"
-                   data-content="Show the predicted scores at each position in the scoring window"
+                   data-content="Show the predicted scores at each position in the scoring window that has non-zero scores"
                    style="position:absolute; top:8px; right:8px; color:#000080; cursor:pointer"></i>`
     }
 
@@ -3485,8 +3523,9 @@
             openPerPositionModal($(this).attr("data-icon-id"))
         })
 
-        // Delegated: the button is part of the table markup, so it is recreated every time a
-        // modal is opened and a direct binding would attach to an element already thrown away.
+        // Delegated. The button now lives in the modal header rather than in the table markup, so
+        // a direct binding would work too, but the delegated form costs nothing and does not have
+        // to be revisited if the button moves back into content that is rebuilt per open.
         $(document).on("click", "#per-position-visualize-button", () => {
             // Run after the modal has finished hiding: Semantic UI keeps the page unscrollable
             // while a modal is up, so scrolling before then would be undone. onHidden is set
