@@ -1530,6 +1530,13 @@
     // The API echoes back whichever form the user typed, so the chromosome arrives with or
     // without the prefix depending on how the variant was entered.
     const withChrPrefix = (chrom) => String(chrom).startsWith("chr") ? String(chrom) : `chr${chrom}`
+
+    // Group a genomic coordinate or an offset into thousands, so 7669671 reads as 7,669,671 and
+    // -4620 as -4,620. Pinned to en-US rather than the viewer's locale: the separator would
+    // otherwise be a period in much of Europe, which in a table of genomic coordinates reads as a
+    // decimal point. Display only -- the CSV writes these fields unformatted, since a comma
+    // inside a value would split the column.
+    const withThousandsSeparators = (value) => Number(value).toLocaleString("en-US")
     const PER_POSITION_DELTA_COLUMNS = {
         spliceai: [
             ["Δ score acceptor loss", (r) => perPositionDelta(r.RA, r.AA)],
@@ -1629,11 +1636,11 @@
             // escapeHtml every backend-supplied field: this markup goes through jQuery.html().
             // Built as one string and escaped once, which also turns the '>' into &gt;.
             const boldIfVariant = row.isVariant ? "font-weight:bold;" : ""
-            const locus = `${withChrPrefix(context.chrom)}:${row.pos} ${row.ref}`
+            const locus = `${withChrPrefix(context.chrom)}:${withThousandsSeparators(row.pos)} ${row.ref}`
                 + (row.isVariant ? ` > ${row.alt}` : "")
             return `<tr class="${row.isVariant ? "per-position-variant-row" : ""}">
                         <td style="white-space:nowrap; ${boldIfVariant}">${escapeHtml(locus)}</td>
-                        <td style="white-space:nowrap">${row.positionDelta} bp</td>
+                        <td style="white-space:nowrap">${withThousandsSeparators(row.positionDelta)} bp</td>
                         <td>${escapeHtml(row.note)}</td>
                         ${deltaColumns.map(([, compute]) => { const d = compute(row); return `<td ${getScoreStyle(d)}>${d}</td>` }).join("")}
                         ${columns.map(([, key]) => `<td ${getRawScoreStyle(row[key])}>${parseFloat(row[key])}</td>`).join("")}
