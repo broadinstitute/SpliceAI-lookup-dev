@@ -76,6 +76,35 @@
          report into the same Clarity project, so dev browsing would show up as real user
          sessions. Keep it production-only. -->
     <style>
+        /* Wider than Semantic UI's 888px default. The SpliceAI table is eleven columns and was
+           being clipped at that width, so the ALT scores could only be read by scrolling the
+           table sideways. Capped at 95vw so a narrow window shrinks the modal instead of
+           pushing it off screen. */
+        #per-position-modal {
+            width: 1150px;
+            max-width: 95vw;
+        }
+
+        /* The header's right padding is what sets the distance from the Visualize button to the
+           edge of the modal, since the button row itself carries no margin on that side. */
+        #per-position-modal > .header {
+            padding-right: 15px;
+        }
+
+        /* A flex row so the gap between the two buttons is exactly the gap declared here. Laid
+           out as inline-blocks instead, the whitespace between the two tags would render as a
+           space and each button would add Semantic UI's own right margin, so the visible gap
+           would be the sum of three things rather than one. */
+        #per-position-header-buttons {
+            float: right;
+            display: flex;
+            gap: 25px;
+        }
+
+        #per-position-header-buttons > .button {
+            margin: 0;
+        }
+
         /* Keep the per-position table's header visible while its rows scroll underneath. The
            sticky offset is relative to #per-position-modal-content, which is the scrolling
            ancestor. An explicit background is required because the rows would otherwise show
@@ -768,7 +797,7 @@
         <span id="per-position-modal-heading"></span>
         <!-- Both buttons float as one block so they keep their left-to-right order. Floating them
              individually would reverse it, since the first floated element lands furthest right. -->
-        <span style="float:right; margin-right:30px">
+        <span id="per-position-header-buttons">
             <button id="per-position-download-button" class="ui tiny basic button">
                 <i class="download icon"></i>Download CSV
             </button>
