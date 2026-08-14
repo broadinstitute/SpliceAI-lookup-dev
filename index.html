@@ -105,6 +105,15 @@
             margin: 0;
         }
 
+        /* Highlight the row under the pointer. The table is wide enough that reading a value in
+           one of the right-hand columns back to its position means tracking across eleven
+           columns, which is exactly where a row is easy to lose. Cells that carry a score
+           shading set their own background inline, so those keep it and the hover shows through
+           the rest of the row. */
+        #per-position-modal-content tbody tr:hover {
+            background-color: #f2f8ff;
+        }
+
         /* Keep the per-position table's header visible while its rows scroll underneath. The
            sticky offset is relative to #per-position-modal-content, which is the scrolling
            ancestor. An explicit background is required because the rows would otherwise show
