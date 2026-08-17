@@ -30,16 +30,24 @@
 
         // Route spliceai/pangolin requests to their 'dev'-tagged Cloud Run
         // revisions (deployed by build_and_deploy.py --dev) when EITHER:
-        //   - this page is served from the dev GitHub Pages site
-        //     (broadinstitute.github.io/SpliceAI-lookup-dev), so the dev site
-        //     always talks to the dev API without needing a URL flag, OR
+        //   - this page is served from the dev site, so it always talks to the
+        //     dev API without needing a URL flag, OR
         //   - the URL hash contains api=dev (manual override, e.g. for local
         //     testing or forcing dev from another host).
         // 'normalize' (liftover) is unaffected because build_and_deploy.py
         // doesn't manage that service.
+        //
+        // Both dev addresses are matched. The custom domain is what the CNAME in
+        // this repository points GitHub Pages at, and the github.io URL is where
+        // the site lived before that and still redirects from. Matching only the
+        // old one would leave the dev site silently calling the PRODUCTION API,
+        // which is the opposite of what a dev site is for.
         const _servedFromDevSite = (
-            window.location.hostname === "broadinstitute.github.io"
-            && window.location.pathname.startsWith("/SpliceAI-lookup-dev")
+            window.location.hostname === "spliceailookup-dev.broadinstitute.org"
+            || (
+                window.location.hostname === "broadinstitute.github.io"
+                && window.location.pathname.startsWith("/SpliceAI-lookup-dev")
+            )
         )
         const _apiMatch = window.location.hash.match(/[?&#]api=([^&#]*)/)
         if (_servedFromDevSite || (_apiMatch && _apiMatch[1] === "dev")) {
