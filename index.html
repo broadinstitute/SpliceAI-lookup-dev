@@ -387,6 +387,8 @@
                                 <a id="more-details1-button" href="#" style="float:right; padding-right:7px" onclick="$('#more-details1').show();$('#more-details1-button').hide();">[more details]</a>
                                 <div id="more-details1" style="display:none">
                                     <br />
+                                    We use <a href="https://genebe.net" target="_blank">GeneBe APIs</a> to convert HGVS notation to genomic coordinates and determine variant consequences for hg38, while using Ensembl APIs for hg19.<br />
+                                    <br />
                                     <a href="https://github.com/illumina/SpliceAI" target="_blank">SpliceAI</a> is a copyrighted work by Illumina and is provided under GPLv3 and CC BY NC 4.0 licenses for academic and non-commercial use.
                                     This web service is maintained by the <a href="https://the-tgg.org/" target="_blank">TGG</a> at the <a href="https://www.broadinstitute.org/" target="_blank">Broad Institute</a>.
                                     It runs the SpliceAI and Pangolin splicing prediction models on user-specified variants and then displays the scores.<br />
@@ -511,7 +513,7 @@
                     <br/>
                     <b>August 18th, 2026</b>
                     <br />
-                    - hg38 variant lookups and consequences now come from the <a href="https://genebe.net" target="_blank">GeneBe</a> API, with <a href="https://useast.ensembl.org/info/docs/tools/vep/index.html" target="_blank">Ensembl VEP</a> as the fallback (VEP still handles hg19). The consequence is now shown separately for each transcript.<br/>
+                    - For better response times, hg38 HGVS conversion and variant consequences now come from the <a href="https://genebe.net" target="_blank">GeneBe API</a>, with the <a href="https://useast.ensembl.org/info/docs/tools/vep/index.html" target="_blank">Ensembl VEP API</a> as fallback (Ensembl still handles hg19).<br/>
                     <br />
                     <b>August 9th, 2026</b>
                     <br />
