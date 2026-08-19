@@ -1395,7 +1395,10 @@
 
             return {
                 'variant': normalizedVariant,
-                'consequence': annotation.effect,
+                // GeneBe joins the variant-level terms with commas, where Ensembl's
+                // most_severe_consequence is a single term. Reduce it to one term so both paths log and
+                // check the same thing.
+                'consequence': annotation.effect ? mostSevereConsequence(annotation.effect.split(",")) : null,
                 'consequencesByTranscriptId': consequencesByTranscriptId,
                 'refAlleleWarning': refAlleleWarning,
             }
