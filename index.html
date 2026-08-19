@@ -1288,6 +1288,38 @@
     // Guidance appended to variant-resolution errors when HGVS lookup is unavailable.
     const GENOMIC_COORDINATE_HINT = `Try entering the variant using genomic coordinates rather than HGVS (eg. "chrom-pos-ref-alt", "chrom:pos ref>alt", etc.)`
 
+    // Ensembl's VEP consequence ranking, most severe first, as returned by
+    // https://rest.ensembl.org/info/variation/consequence_types?rank=1
+    const CONSEQUENCE_SEVERITY_ORDER = [
+        "transcript_ablation", "splice_acceptor_variant", "splice_donor_variant", "stop_gained",
+        "frameshift_variant", "stop_lost", "start_lost", "transcript_amplification", "feature_elongation",
+        "feature_truncation", "inframe_insertion", "inframe_deletion", "missense_variant",
+        "protein_altering_variant", "splice_donor_5th_base_variant", "splice_region_variant",
+        "splice_donor_region_variant", "splice_polypyrimidine_tract_variant",
+        "incomplete_terminal_codon_variant", "start_retained_variant", "stop_retained_variant",
+        "synonymous_variant", "coding_sequence_variant", "mature_miRNA_variant", "5_prime_UTR_variant",
+        "3_prime_UTR_variant", "non_coding_transcript_exon_variant", "intron_variant",
+        "NMD_transcript_variant", "non_coding_transcript_variant", "coding_transcript_variant",
+        "upstream_gene_variant", "downstream_gene_variant", "TFBS_ablation", "TFBS_amplification",
+        "TF_binding_site_variant", "regulatory_region_ablation", "regulatory_region_amplification",
+        "regulatory_region_variant", "intergenic_variant", "sequence_variant",
+    ]
+
+    const mostSevereConsequence = (consequenceTerms) => {
+        /* Return the most severe of the consequence terms reported for a single transcript. Terms that
+         * aren't in CONSEQUENCE_SEVERITY_ORDER rank below all the ones that are, and ties keep the order
+         * the API returned them in.
+         *
+         * Args:
+         *  consequenceTerms (array): one or more SO consequence terms. Must not be empty.
+         */
+        const rank = (term) => {
+            const i = CONSEQUENCE_SEVERITY_ORDER.indexOf(term)
+            return i === -1 ? CONSEQUENCE_SEVERITY_ORDER.length : i
+        }
+        return consequenceTerms.reduce((mostSevere, term) => rank(term) < rank(mostSevere) ? term : mostSevere)
+    }
+
     const transcriptIdKey = (transcriptId) => {
         /* Key used to match a transcript id returned by a consequence API against the t_id values in
          * SpliceAI / Pangolin responses. Dropping the version also drops the "_7" suffix that Gencode
@@ -1346,7 +1378,7 @@
                 if (transcriptConsequence.feature && transcriptConsequence.consequences
                     && transcriptConsequence.consequences.length) {
                     consequencesByTranscriptId[transcriptIdKey(transcriptConsequence.feature)] =
-                        transcriptConsequence.consequences.join(", ")
+                        mostSevereConsequence(transcriptConsequence.consequences)
                 }
             }
 
@@ -1551,7 +1583,7 @@
                 if (transcriptConsequence.transcript_id && transcriptConsequence.consequence_terms
                     && transcriptConsequence.consequence_terms.length) {
                     consequencesByTranscriptId[transcriptIdKey(transcriptConsequence.transcript_id)] =
-                        transcriptConsequence.consequence_terms.join(", ")
+                        mostSevereConsequence(transcriptConsequence.consequence_terms)
                 }
             }
 
@@ -2214,8 +2246,8 @@
                             <br class="only-large-screen" />
                         <div class="small-link"><a href="https://www.gencodegenes.org/pages/biotypes.html" target="_blank">${escapeHtml(scores['t_type'].replace(/_/g, " "))}</a></div>
                         <div class="small-link">${scores['t_priority'] != "N" ? TRANSCRIPT_PRIORITY_VIEW_LOOKUP[scores['t_priority']] : ""}</div>
-                        ${transcriptConsequenceDiv}
                         <div class="small-link"> (${escapeHtml(strand)} strand)</div>
+                        ${transcriptConsequenceDiv}
                     </div><br class="only-large-screen" />
                     <br class="only-large-screen" />
                     <a href="https://www.omim.org/search?search=${encodeURIComponent(scores['g_name'])}" class="small-link" target="_blank">OMIM</a>,
