@@ -387,7 +387,7 @@
                                 <a id="more-details1-button" href="#" style="float:right; padding-right:7px" onclick="$('#more-details1').show();$('#more-details1-button').hide();">[more details]</a>
                                 <div id="more-details1" style="display:none">
                                     <br />
-                                    We use <a href="https://genebe.net" target="_blank">GeneBe APIs</a> to determine variant consequences, and to convert HGVS notation to genomic coordinates for hg38. Ensembl APIs convert HGVS notation for hg19, and are the fallback whenever GeneBe is unavailable.<br />
+                                    We use the <a href="https://genebe.net" target="_blank">GeneBe API</a> to convert HGVS notation to genomic coordinates and to provide variant consequences for hg38. The Ensembl API is still used to convert HGVS notation for hg19, and serve as a backup option if GeneBe is unavailable.<br />
                                     <br />
                                     <a href="https://github.com/illumina/SpliceAI" target="_blank">SpliceAI</a> is a copyrighted work by Illumina and is provided under GPLv3 and CC BY NC 4.0 licenses for academic and non-commercial use.
                                     This web service is maintained by the <a href="https://the-tgg.org/" target="_blank">TGG</a> at the <a href="https://www.broadinstitute.org/" target="_blank">Broad Institute</a>.
@@ -1460,8 +1460,9 @@
          *
          * Return:
          *  object: {variant, consequence, consequencesByTranscriptId, warnings} when GeneBe both resolved
-         *      and annotated the variant, {variant, warnings} when it resolved the coordinates but couldn't
-         *      annotate them, or null when it couldn't resolve the variant at all
+         *      and annotated the variant, {variant, warnings, refAlleleError} when the variant's REF allele
+         *      doesn't match the reference genome, {variant, warnings} when it resolved the coordinates but
+         *      couldn't annotate them, or null when it couldn't resolve the variant at all
          */
         let normalizedVariant = genomicVariant
         const warnings = []
