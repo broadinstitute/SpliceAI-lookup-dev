@@ -686,7 +686,7 @@
                                     </button>
                                     <div class="or"></div>
                                     <button id="all-transcript-button" class="ui button" onclick="updateTranscriptButtons('all')">
-                                        All Transcripts
+                                        All <span id="all-transcript-count"></span> Transcripts
                                     </button>
                                 </div>
                             </td>
@@ -3945,10 +3945,22 @@
             // response handler would race — whichever Promise.all branch resolved last
             // would win, producing nondeterministic UI on page load.
             const transcriptCategories = {}
+            const transcriptIds = new Set()
             for (const json of [spliceaiResponseJson, pangolinResponseJson]) {
                 if (!json || !json.scores) continue
-                for (const s of json.scores) transcriptCategories[s.t_priority] = true
+                for (const s of json.scores) {
+                    transcriptCategories[s.t_priority] = true
+                    if (s.t_id) transcriptIds.add(s.t_id)
+                }
             }
+
+            // Count the union of transcript ids rather than either table's row count, since
+            // the two tools can return different transcript sets for the same variant. The
+            // default view shows only the main transcript, and without this count the button
+            // gives no hint of how many rows that view is hiding. A count of 1 is left out:
+            // nothing is hidden in that case, and the label reads "All Transcripts" as before.
+            $("#all-transcript-count").html(transcriptIds.size > 1 ? `${transcriptIds.size}` : "")
+
             if (transcriptCategories["MS"]) {
                 $(".main-transcript-label").html("MANE Select")
             } else if (transcriptCategories["MP"]) {
