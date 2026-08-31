@@ -1264,6 +1264,18 @@
         return `https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg${genomeVers}&position=chr${chromWithoutPrefix}:${pos}`
     }
 
+    const genomeDisplayName = (genomeVersion) => {
+        /* The name users know a genome build by, for error messages. The page numbers the builds 37
+         * and 38 internally, so interpolating that number straight into a message produces "hg37",
+         * which is not a real build name. Mirrors genome_display_name() in server.py, so the front
+         * end and the backends word the same error identically.
+         *
+         * Args:
+         *  genomeVersion (string): "37" or "38"
+         */
+        return genomeVersion == '37' ? "hg19" : "hg38"
+    }
+
     const getGeneBeVariantUrl = (genomeVersion, chrom, pos, ref, alt) => {
         // GeneBe's variant page route is /variant/{hg19|hg38}/{query}
         const genomeVers = genomeVersion.replace('37', '19')
@@ -1822,7 +1834,8 @@
                 const refAlleleErrorMatch = errorText.match(
                     new RegExp("[(]([ACGTRYSWKMBDHVN]+)[)] does not match reference allele given by HGVS notation"))
                 if (refAlleleErrorMatch) {
-                    errorText = `${variant} has an unexpected reference allele. The hg${genomeVersion} reference allele should be ${refAlleleErrorMatch[1]}`
+                    errorText = `${variant} has an unexpected reference allele. `
+                        + `The ${genomeDisplayName(genomeVersion)} reference allele should be ${refAlleleErrorMatch[1]}`
                 }
 
                 throw new Error(errorText);
