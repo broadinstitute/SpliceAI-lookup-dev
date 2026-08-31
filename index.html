@@ -1899,36 +1899,6 @@
             // produce user-visible "Error: Error: <msg>" strings.
             throw e
         }
-
-
-
-        /*
-        // left-align the indel
-        let leftAlignApiResponse
-        try {
-            leftAlignApiResponse = await makeRequest(`${baseApiUrl['normalize']}/normalize/?g=hg${genomeVersion}&chrom=${chrom}&pos=${pos}&ref=${ref}&alt=${alt}`)
-            const leftAlignApiResponseJson = await leftAlignApiResponse
-            console.log(`Left-align API response:`, leftAlignApiResponseJson)
-            if (!leftAlignApiResponse.ok || leftAlignApiResponseJson.error) {
-                console.log(`${leftAlignApiResponseJson.error}`)
-            } else {
-                if (leftAlignApiResponseJson.normalized_ref && leftAlignApiResponseJson.normalized_alt && leftAlignApiResponseJson.normalized_ref.length != leftAlignApiResponseJson.normalized_alt.length && (
-                    parseInt(leftAlignApiResponseJson.normalized_pos) != pos || leftAlignApiResponseJson.normalized_ref != ref || leftAlignApiResponseJson.normalized_alt != alt)
-                ) {
-                    chrom = leftAlignApiResponseJson.normalized_chrom
-                    pos = leftAlignApiResponseJson.normalized_pos
-                    ref = leftAlignApiResponseJson.normalized_ref
-                    alt = leftAlignApiResponseJson.normalized_alt
-                }
-            }
-
-        } catch(e) {
-            console.error(e)
-        }
-
-        return `${chrom}-${pos}-${ref}-${alt}`
-
-        */
     }
 
     const makeRequest = (url, timeoutMs = null) => {
