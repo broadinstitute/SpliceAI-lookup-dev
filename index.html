@@ -1395,29 +1395,41 @@
             + `-${String(geneBeVariant.ref).toUpperCase()}-${String(geneBeVariant.alt).toUpperCase()}`
     }
 
-    const annotateVariantWithGeneBe = async (normalizedVariant, genomeVersion, variant) => {
+    const annotateVariantWithGeneBe = async (queryVariant, genomeVersion, variant, expectedVariant = null) => {
         /* Look up a variant's consequences with the GeneBe variant-relaxed API. Returns null if GeneBe is
          * unreachable or has nothing for the variant, so the caller can fall back to Ensembl.
          *
          * Args:
-         *  normalizedVariant (string): "{chrom}-{pos}-{ref}-{alt}" in the given genome version
+         *  queryVariant (string): what to ask GeneBe about. variant-relaxed takes HGVS, rs ids, SPDI and
+         *      protein changes as well as "{chrom}-{pos}-{ref}-{alt}", so hg38 callers pass the user's
+         *      input straight through and let this one call both resolve and annotate it.
          *  genomeVersion (string): "37" or "38"
          *  variant (string): the user's input text, used in the reference-allele note
+         *  expectedVariant (string): "{chrom}-{pos}-{ref}-{alt}" the answer has to describe, or null when
+         *      the caller has no coordinates of its own and is relying on GeneBe to resolve them
          *
          * Return:
-         *  object: {consequence, consequencesByTranscriptId, refAlleleError}, or null. refAlleleError is
-         *      set when the variant's REF allele doesn't match the reference genome, which makes the
-         *      annotation describe a different variant than the one that was asked about.
+         *  object: {variant, consequence, consequencesByTranscriptId}, or {refAlleleError}, or null.
+         *      refAlleleError is set when the variant's REF allele doesn't match the reference genome,
+         *      which makes the annotation describe a different variant than the one that was asked about.
+         *      The returned variant is in hg38 coordinates whatever genome version was asked for.
          */
         // GeneBe names the genome builds hg19 and hg38, where this page numbers them 37 and 38
         const geneBeGenome = genomeVersion == '37' ? "hg19" : "hg38"
         const annotationResponse = await makeRequest(
-            `${GENEBE_API_PREFIX}/variant-relaxed?variant=${encodeURIComponent(normalizedVariant)}`
+            `${GENEBE_API_PREFIX}/variant-relaxed?variant=${encodeURIComponent(queryVariant)}`
                 + `&genome=${geneBeGenome}`,
             GENEBE_TIMEOUT_MS)
         const annotation = annotationResponse.ok && annotationResponse.variants ? annotationResponse.variants[0] : null
         if (!annotation) {
-            console.warn("GeneBe variant-relaxed API returned no annotation for", normalizedVariant, annotationResponse)
+            console.warn("GeneBe variant-relaxed API returned no annotation for", queryVariant, annotationResponse)
+            return null
+        }
+
+        const returnedRef = annotation.ref ? String(annotation.ref).toUpperCase() : null
+        const returnedAlt = annotation.alt ? String(annotation.alt).toUpperCase() : null
+        if (!returnedRef || !returnedAlt || !annotation.chr || !annotation.pos) {
+            console.warn("GeneBe variant-relaxed API returned an incomplete variant for", queryVariant, annotation)
             return null
         }
 
@@ -1432,36 +1444,49 @@
             }
         }
 
-        // GeneBe substitutes the true reference allele when the one it was given doesn't match, rather
-        // than rejecting the variant, and it answers an hg19 query by lifting to GRCh38, where the
-        // reference base at that position may be a different one (hg19 16-30779716-A-G comes back as
-        // G>G). Either way everything it just annotated describes some other substitution, so check the
-        // alleles it echoes back. Positions can't be compared for hg19, since the echoed one is the
-        // lifted GRCh38 position.
-        // GeneBe also left-aligns indels, which re-writes the alleles without changing the variant (hg19
-        // 1-865507-CC-C comes back as 1-930124-GC-G, the same deleted C), so the comparison is on what the
-        // variant changes rather than on the allele strings themselves.
-        const askedFor = normalizedVariant.split("-")
-        const returnedRef = annotation.ref ? String(annotation.ref).toUpperCase() : null
-        const returnedAlt = annotation.alt ? String(annotation.alt).toUpperCase() : null
-        if (!returnedRef || !returnedAlt
-            || alleleChange(returnedRef, returnedAlt) != alleleChange(askedFor[2], askedFor[3])) {
-            // Same position and same REF length means GeneBe is naming the reference allele this variant
-            // should have had, which is worth telling the user. Anything else (an hg19 lift landing on a
-            // different base, an indel written differently) just means the annotation can't be used.
-            if (returnedRef && String(annotation.pos) == askedFor[1] && returnedAlt == askedFor[3]
-                && returnedRef.length == askedFor[2].length) {
-                return {
-                    'refAlleleError': `${variant} has an unexpected reference allele. `
-                        + `The ${geneBeGenome} reference allele should be ${returnedRef}`,
-                }
+        // GeneBe substitutes the true reference allele when the one it was given doesn't match, rather than
+        // rejecting the variant, and says so in a 'warning' field naming the base it used instead. That
+        // field is the only way to catch a wrong REF in input GeneBe resolved on its own, since then there
+        // are no coordinates of ours to compare its answer against.
+        if (annotation.warning) {
+            const correctRef = annotation.warning.match(/reference sequence \(([ACGTN]+)\)/i)
+            return {
+                'refAlleleError': `${variant} has an unexpected reference allele. `
+                    + (correctRef
+                        ? `The ${geneBeGenome} reference allele should be ${correctRef[1].toUpperCase()}`
+                        : `It does not match the ${geneBeGenome} reference genome`),
             }
-            console.warn("GeneBe annotated a different variant than the one asked about:",
-                normalizedVariant, `${annotation.chr}-${annotation.pos}-${returnedRef}-${returnedAlt}`)
-            return null
+        }
+
+        // The warning field covers hg38 only. An hg19 query is answered by lifting to GRCh38, where the
+        // reference base at that position may be a different one (hg19 16-30779716-A-G comes back as G>G)
+        // with nothing said about it, so when the caller brought its own coordinates, check the alleles
+        // echoed back as well. Positions can't be compared for hg19, since the echoed one is the lifted
+        // GRCh38 position. GeneBe also left-aligns indels, which re-writes the alleles without changing the
+        // variant (hg19 1-865507-CC-C comes back as 1-930124-GC-G, the same deleted C), so the comparison
+        // is on what the variant changes rather than on the allele strings themselves.
+        if (expectedVariant) {
+            const askedFor = expectedVariant.split("-")
+            if (alleleChange(returnedRef, returnedAlt) != alleleChange(askedFor[2], askedFor[3])) {
+                // Same position and same REF length means GeneBe is naming the reference allele this
+                // variant should have had, which is worth telling the user. Anything else (an hg19 lift
+                // landing on a different base, an indel written differently) just means the annotation
+                // can't be used.
+                if (String(annotation.pos) == askedFor[1] && returnedAlt == askedFor[3]
+                    && returnedRef.length == askedFor[2].length) {
+                    return {
+                        'refAlleleError': `${variant} has an unexpected reference allele. `
+                            + `The ${geneBeGenome} reference allele should be ${returnedRef}`,
+                    }
+                }
+                console.warn("GeneBe annotated a different variant than the one asked about:",
+                    expectedVariant, `${annotation.chr}-${annotation.pos}-${returnedRef}-${returnedAlt}`)
+                return null
+            }
         }
 
         return {
+            'variant': geneBeVariantToString(annotation),
             // GeneBe joins the variant-level terms with commas, where Ensembl's most_severe_consequence
             // is a single term. Reduce it to one term so both paths log and check the same thing.
             'consequence': annotation.effect ? mostSevereConsequence(annotation.effect.split(",")) : null,
@@ -1470,72 +1495,29 @@
     }
 
     const resolveVariantWithGeneBe = async (variant, genomicVariant) => {
-        /* Convert the given variant to "{chrom}-{pos}-{ref}-{alt}" and look up its consequences using
-         * the GeneBe API. hg38 only: GeneBe's convert endpoint returns hg38 coordinates regardless of
-         * the requested genome version. Returns null if GeneBe is unreachable or can't resolve the
-         * variant, so the caller can fall back to Ensembl.
+        /* Resolve the given variant to "{chrom}-{pos}-{ref}-{alt}" and look up its consequences using the
+         * GeneBe API. hg38 only: variant-relaxed answers with hg38 coordinates whatever genome version is
+         * requested. Returns null if GeneBe is unreachable or can't resolve the variant, so the caller can
+         * fall back to Ensembl.
+         *
+         * variant-relaxed takes the user's input directly, so one call both resolves the coordinates and
+         * annotates them, and its 'warning' field reports a REF allele that had to be substituted.
          *
          * Args:
          *  variant (string): user input text
-         *  genomicVariant (string): the same variant as "{chrom}-{pos}-{ref}-{alt}" when the input
-         *      could be parsed locally, or null when GeneBe has to convert it first
+         *  genomicVariant (string): the same variant as "{chrom}-{pos}-{ref}-{alt}" when the input could
+         *      be parsed locally, or null when GeneBe has to resolve it
          *
          * Return:
-         *  object: {variant, consequence, consequencesByTranscriptId, warnings} when GeneBe both resolved
-         *      and annotated the variant, {variant, warnings, refAlleleError} when the variant's REF allele
-         *      doesn't match the reference genome, {variant, warnings} when it resolved the coordinates but
-         *      couldn't annotate them, or null when it couldn't resolve the variant at all
+         *  object: {variant, consequence, consequencesByTranscriptId} when GeneBe resolved and annotated
+         *      the variant, {refAlleleError} when its REF allele doesn't match the reference genome, or
+         *      null when GeneBe couldn't resolve it at all
          */
-        let normalizedVariant = genomicVariant
-        const warnings = []
         try {
-            if (!normalizedVariant) {
-                // GeneBe's convert endpoint takes HGVS, rs ids, SPDI, and protein changes. It answers
-                // with one entry per input: {"variants": [...]} when resolved, {"error": "..."} when not.
-                const convertResponse = await makeRequest(
-                    `${GENEBE_API_PREFIX}/convert?id=${encodeURIComponent(variant.trim())}`, GENEBE_TIMEOUT_MS)
-                const convertedVariants = convertResponse.ok && convertResponse[0] && convertResponse[0].variants
-                    ? convertResponse[0].variants : []
-                const converted = convertedVariants[0]
-                if (!converted || !converted.chr || !converted.pos || !converted.ref || !converted.alt) {
-                    console.warn("GeneBe convert API couldn't resolve", variant, convertResponse)
-                    return null
-                }
-                normalizedVariant = geneBeVariantToString(converted)
-
-                // An rs id can name several alleles at one position, and only the first is scored. Say so,
-                // rather than letting the other alleles disappear without a word.
-                if (convertedVariants.length > 1) {
-                    warnings.push(`${variant} matches ${convertedVariants.length} variants `
-                        + `(${convertedVariants.map(geneBeVariantToString).join(", ")}). `
-                        + `Showing scores for ${normalizedVariant} only.`)
-                }
-            }
-
-            // Caught separately from the conversion above: once the coordinates are in hand they're worth
-            // returning even if the annotation call then fails, since they're the only way to score an rs id,
-            // an SPDI, or a protein change, none of which the Ensembl fallback can parse.
-            let annotation = null
-            try {
-                annotation = await annotateVariantWithGeneBe(normalizedVariant, "38", variant)
-            } catch (e) {
-                console.warn("GeneBe variant-relaxed API call failed:", e)
-            }
-            if (!annotation) {
-                return {'variant': normalizedVariant, 'warnings': warnings}
-            }
-
-            if (annotation.refAlleleError) {
-                return {'variant': normalizedVariant, 'warnings': warnings,
-                    'refAlleleError': annotation.refAlleleError}
-            }
-
-            return {
-                'variant': normalizedVariant,
-                'consequence': annotation.consequence,
-                'consequencesByTranscriptId': annotation.consequencesByTranscriptId,
-                'warnings': warnings,
-            }
+            // Prefer the locally parsed coordinates when there are any: they say exactly which variant is
+            // meant, where the raw text can be in a format only this page's regexp knows how to read.
+            return await annotateVariantWithGeneBe(
+                genomicVariant || variant.trim(), "38", variant, genomicVariant)
         } catch (e) {
             console.warn("GeneBe API call failed:", e)
             return null
@@ -1605,8 +1587,6 @@
         let chrom, pos, ref, alt, variantConsequence
         let matchedRegExp = variant.match(VARIANT_RE)
         let hasLocalParse = Boolean(matchedRegExp)  // remember if we have coordinates to fall back on
-        let geneBeWarnings = []
-        let geneBeAnnotationFailed = false
         let ensemblApiUrl, ensemblApiResponse, ensemblApiResponseJson
         if (matchedRegExp) {
             // was able to parse the user input using a simple reg-exp
@@ -1617,8 +1597,8 @@
         }
 
         // GeneBe resolves hg38 variants, and is the only source of per-transcript consequences for them.
-        // hg19 goes to Ensembl instead: GeneBe's convert endpoint returns hg38 coordinates whatever genome
-        // is requested, while the GRCh37 Ensembl API maps hg19 input against GRCh37 directly.
+        // hg19 goes to Ensembl instead: GeneBe answers with hg38 coordinates whatever genome is requested,
+        // while the GRCh37 Ensembl API maps hg19 input against GRCh37 directly.
         if (genomeVersion == '38') {
             const geneBeResult = await resolveVariantWithGeneBe(variant, hasLocalParse ? `${chrom}-${pos}-${ref}-${alt}` : null)
             if (geneBeResult && geneBeResult.refAlleleError) {
@@ -1627,29 +1607,11 @@
                 // the actual reason, and so three API calls aren't spent on a variant that cannot score.
                 throw Error(geneBeResult.refAlleleError)
             }
-            if (geneBeResult && geneBeResult.consequencesByTranscriptId) {
+            if (geneBeResult) {
                 console.log("GeneBe API result:", geneBeResult)
                 return geneBeResult
             }
-            if (geneBeResult) {
-                // GeneBe resolved the coordinates but couldn't annotate them. Carry those coordinates into
-                // the Ensembl call below instead of the raw input, which Ensembl can't parse when the user
-                // typed an rs id, an SPDI, or a protein change.
-                console.warn("GeneBe API couldn't annotate the variant, continuing with its coordinates:",
-                    geneBeResult.variant)
-                geneBeWarnings = geneBeResult.warnings
-                geneBeAnnotationFailed = true
-                matchedRegExp = geneBeResult.variant.match(VARIANT_RE)
-                hasLocalParse = Boolean(matchedRegExp)
-                if (matchedRegExp) {
-                    chrom = matchedRegExp[2].toUpperCase()
-                    pos = parseInt(matchedRegExp[3])
-                    ref = matchedRegExp[4].toUpperCase()
-                    alt = matchedRegExp[5].toUpperCase()
-                }
-            } else {
-                console.warn("GeneBe API couldn't resolve the variant, falling back to Ensembl")
-            }
+            console.warn("GeneBe API couldn't resolve the variant, falling back to Ensembl")
         }
 
         if (matchedRegExp) {
@@ -1664,11 +1626,12 @@
                 // for one. GeneBe takes chrom-pos-ref-alt directly, so it can still supply consequences.
                 const mnpVariant = `${chrom}-${pos}-${ref}-${alt}`
                 let mnpAnnotation = null
-                // Skipped when GeneBe already failed to annotate these coordinates above, which is the only
-                // way an hg38 MNP reaches this branch: asking the same question twice would just fail twice.
-                if (!geneBeAnnotationFailed) {
+                // An hg38 MNP only reaches this branch when GeneBe already failed on these coordinates
+                // above, so asking it the same question twice would just fail twice.
+                if (genomeVersion != '38') {
                     try {
-                        mnpAnnotation = await annotateVariantWithGeneBe(mnpVariant, genomeVersion, userInputVariant)
+                        mnpAnnotation = await annotateVariantWithGeneBe(
+                            mnpVariant, genomeVersion, userInputVariant, mnpVariant)
                     } catch (e) {
                         console.warn("GeneBe API call failed:", e)
                     }
@@ -1680,7 +1643,6 @@
                     'variant': mnpVariant,
                     'consequence': mnpAnnotation ? mnpAnnotation.consequence : null,
                     'consequencesByTranscriptId': mnpAnnotation ? mnpAnnotation.consequencesByTranscriptId : null,
-                    'warnings': geneBeWarnings,
                 }
             }
         }
@@ -1703,7 +1665,6 @@
                     return {
                         'variant': `${chrom}-${pos}-${ref}-${alt}`,
                         'consequence': null,
-                        'warnings': geneBeWarnings,
                         'usedFallback': true,
                         'fallbackReason': errorMessage.includes('timed out') ? 'Ensembl API timed out' : 'Ensembl API unavailable'
                     }
@@ -1778,7 +1739,6 @@
                 'variant': `${chrom}-${pos}-${ref}-${alt}`,
                 'consequence': variantConsequence,
                 'consequencesByTranscriptId': consequencesByTranscriptId,
-                'warnings': geneBeWarnings,
             }
 
             // The GRCh37 VEP endpoint annotates against an older Ensembl transcript set that largely
@@ -1794,7 +1754,7 @@
                     // The error itself isn't surfaced here: the GRCh37 Ensembl call above already validated
                     // this variant's REF allele, so it can only mean the lift landed on a different base.
                     const geneBeAnnotation = await annotateVariantWithGeneBe(
-                        result.variant, genomeVersion, userInputVariant)
+                        result.variant, genomeVersion, userInputVariant, result.variant)
                     if (geneBeAnnotation && geneBeAnnotation.consequencesByTranscriptId) {
                         result.consequence = geneBeAnnotation.consequence
                         result.consequencesByTranscriptId = geneBeAnnotation.consequencesByTranscriptId
@@ -1815,7 +1775,6 @@
                 return {
                     'variant': `${chrom}-${pos}-${ref}-${alt}`,
                     'consequence': null,
-                    'warnings': geneBeWarnings,
                     'usedFallback': true,
                     'fallbackReason': `Ensembl API error: ${e.message || e}`
                 }
