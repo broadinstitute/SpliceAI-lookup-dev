@@ -1495,16 +1495,25 @@
          *
          * Return:
          *  object: {variant, consequence, consequencesByTranscriptId}, or {refAlleleError}, or null.
+         *      null covers both GeneBe having nothing usable for the variant and the call itself
+         *      failing (makeRequest rejects on a timeout or an unreachable server), so callers can
+         *      treat one return value as "no answer" rather than each wrapping this in a try/catch.
          *      refAlleleError is set when the variant's REF allele doesn't match the reference genome,
          *      which makes the annotation describe a different variant than the one that was asked about.
          *      The returned variant is in hg38 coordinates whatever genome version was asked for.
          */
         // GeneBe names the genome builds hg19 and hg38, where this page numbers them 37 and 38
         const geneBeGenome = genomeVersion == '37' ? "hg19" : "hg38"
-        const annotationResponse = await makeRequest(
-            `${GENEBE_API_PREFIX}/variant-relaxed?variant=${encodeURIComponent(queryVariant)}`
-                + `&genome=${geneBeGenome}`,
-            GENEBE_TIMEOUT_MS)
+        let annotationResponse
+        try {
+            annotationResponse = await makeRequest(
+                `${GENEBE_API_PREFIX}/variant-relaxed?variant=${encodeURIComponent(queryVariant)}`
+                    + `&genome=${geneBeGenome}`,
+                GENEBE_TIMEOUT_MS)
+        } catch (e) {
+            console.warn("GeneBe API call failed:", e)
+            return null
+        }
         const annotation = annotationResponse.ok && annotationResponse.variants ? annotationResponse.variants[0] : null
         if (!annotation) {
             console.warn("GeneBe variant-relaxed API returned no annotation for", queryVariant, annotationResponse)
@@ -1608,28 +1617,24 @@
          *      {refAlleleError} when its REF allele doesn't match the reference genome, or
          *      null when GeneBe couldn't resolve it at all
          */
-        try {
-            // Prefer the locally parsed coordinates when there are any: they say exactly which variant is
-            // meant, where the raw text can be in a format only this page's regexp knows how to read.
-            const result = await annotateVariantWithGeneBe(
-                genomicVariant || variant.trim(), "38", variant, genomicVariant)
+        // Prefer the locally parsed coordinates when there are any: they say exactly which variant is
+        // meant, where the raw text can be in a format only this page's regexp knows how to read.
+        // No expectedVariant: hg38 answers are checked by GeneBe's own 'warning' field instead of by
+        // comparing alleles, for the reason set out above annotateVariantWithGeneBe's comparison.
+        const result = await annotateVariantWithGeneBe(genomicVariant || variant.trim(), "38", variant)
 
-            // A dbSNP id names a position, not an allele, and GeneBe answers a multi-allelic one with a
-            // single ALT of its choosing (rs1799966 comes back as 17-43071077-T-A, though GeneBe tags
-            // 17-43071077-T-C with that id too). Scoring one allele the user never picked is only safe if
-            // the page says which one it used, so name it. hg19 doesn't need this: Ensembl rejects rs ids.
-            if (result && result.variant && RS_ID_RE.test(variant.trim())) {
-                result.warnings = [
-                    `${variant.trim()} was resolved to ${result.variant}. A dbSNP ID can cover more than `
-                    + `one alternate allele, so if you meant a different one, search for it as `
-                    + `chrom-pos-ref-alt.`,
-                ]
-            }
-            return result
-        } catch (e) {
-            console.warn("GeneBe API call failed:", e)
-            return null
+        // A dbSNP id names a position, not an allele, and GeneBe answers a multi-allelic one with a
+        // single ALT of its choosing (rs1799966 comes back as 17-43071077-T-A, though GeneBe tags
+        // 17-43071077-T-C with that id too). Scoring one allele the user never picked is only safe if
+        // the page says which one it used, so name it. hg19 doesn't need this: Ensembl rejects rs ids.
+        if (result && result.variant && RS_ID_RE.test(variant.trim())) {
+            result.warnings = [
+                `${variant.trim()} was resolved to ${result.variant}. A dbSNP ID can cover more than `
+                + `one alternate allele, so if you meant a different one, search for it as `
+                + `chrom-pos-ref-alt.`,
+            ]
         }
+        return result
     }
 
     const resolveVariantWithVariantValidator = async (variant, genomeVersion) => {
@@ -1758,12 +1763,8 @@
             // so asking it the same question twice would just fail twice.
             if (genomeVersion != '38') {
                 onProgress("Looking up variant consequences using GeneBe...")
-                try {
-                    annotation = await annotateVariantWithGeneBe(
-                        parsedVariant, genomeVersion, userInputVariant, parsedVariant)
-                } catch (e) {
-                    console.warn("GeneBe API call failed:", e)
-                }
+                annotation = await annotateVariantWithGeneBe(
+                    parsedVariant, genomeVersion, userInputVariant, parsedVariant)
             }
             if (annotation && annotation.refAlleleError) {
                 throw Error(annotation.refAlleleError)
@@ -1799,14 +1800,9 @@
                     // never seen these coordinates. A bare refAlleleError is ignored rather than
                     // thrown -- the backends check the REF allele themselves and this fallback has
                     // already done the hard part, so it shouldn't be abandoned over it.
-                    let vvAnnotation = null
                     onProgress("Looking up variant consequences using GeneBe...")
-                    try {
-                        vvAnnotation = await annotateVariantWithGeneBe(
-                            vvVariant, genomeVersion, userInputVariant, vvVariant)
-                    } catch (e) {
-                        console.warn("GeneBe API call failed:", e)
-                    }
+                    const vvAnnotation = await annotateVariantWithGeneBe(
+                        vvVariant, genomeVersion, userInputVariant, vvVariant)
                     const vvConsequences = vvAnnotation && vvAnnotation.consequencesByTranscriptId
                         ? vvAnnotation : null
                     return {
@@ -1880,20 +1876,17 @@
             // Only for hg19: an hg38 variant that reaches this code has already been through GeneBe.
             if (genomeVersion == '37') {
                 onProgress("Looking up variant consequences using GeneBe...")
-                try {
-                    // annotateVariantWithGeneBe answers with null, an annotation, or a bare refAlleleError.
-                    // A null or an error means it described some other variant than the one asked about, so
-                    // the VEP consequences stay in place rather than being replaced by that other variant's.
-                    // The error itself isn't surfaced here: the GRCh37 Ensembl call above already validated
-                    // this variant's REF allele, so it can only mean the lift landed on a different base.
-                    const geneBeAnnotation = await annotateVariantWithGeneBe(
-                        result.variant, genomeVersion, userInputVariant, result.variant)
-                    if (geneBeAnnotation && geneBeAnnotation.consequencesByTranscriptId) {
-                        result.consequence = geneBeAnnotation.consequence
-                        result.consequencesByTranscriptId = geneBeAnnotation.consequencesByTranscriptId
-                    }
-                } catch (e) {
-                    console.warn("GeneBe API call failed, keeping the VEP consequences:", e)
+                // annotateVariantWithGeneBe answers with null, an annotation, or a bare refAlleleError.
+                // A null (which now also covers the call failing) or an error means it described some
+                // other variant than the one asked about, so the VEP consequences stay in place rather
+                // than being replaced by that other variant's. The error itself isn't surfaced here: the
+                // GRCh37 Ensembl call above already validated this variant's REF allele, so it can only
+                // mean the lift landed on a different base.
+                const geneBeAnnotation = await annotateVariantWithGeneBe(
+                    result.variant, genomeVersion, userInputVariant, result.variant)
+                if (geneBeAnnotation && geneBeAnnotation.consequencesByTranscriptId) {
+                    result.consequence = geneBeAnnotation.consequence
+                    result.consequencesByTranscriptId = geneBeAnnotation.consequencesByTranscriptId
                 }
             }
             console.log("EnsemblAPI result:", result)
@@ -3999,21 +3992,19 @@
                 if (normalizedVariantAndConsequence.usedFallback) {
                     // Render "VariantValidator" in the fallback note as a link when the
                     // reason mentions it; all other reason text stays a plain text node.
+                    // VariantValidator is the only thing that sets usedFallback now, and both of its
+                    // reasons name it, so the link always has somewhere to go.
                     const reason = normalizedVariantAndConsequence.fallbackReason
                     const vvIndex = reason.indexOf("VariantValidator")
                     // Only say the consequence is missing when it actually is. The fallback can still
                     // get one from GeneBe, in which case saying otherwise contradicts the table.
                     const consequenceNote = consequencesByTranscriptId
                         && Object.keys(consequencesByTranscriptId).length ? "" : " VEP consequence is unavailable."
-                    if (vvIndex === -1) {
-                        showNoteIfCurrent(`Note: ${reason}.${consequenceNote}`)
-                    } else {
-                        showNoteIfCurrent([
-                            `Note: ${reason.slice(0, vvIndex)}`,
-                            {text: "VariantValidator", href: "https://variantvalidator.org/"},
-                            `${reason.slice(vvIndex + "VariantValidator".length)}.${consequenceNote}`,
-                        ])
-                    }
+                    showNoteIfCurrent([
+                        `Note: ${reason.slice(0, vvIndex)}`,
+                        {text: "VariantValidator", href: "https://variantvalidator.org/"},
+                        `${reason.slice(vvIndex + "VariantValidator".length)}.${consequenceNote}`,
+                    ])
                 }
             }
 
