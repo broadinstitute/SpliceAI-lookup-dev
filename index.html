@@ -1738,7 +1738,11 @@
                 console.log("GeneBe API result:", geneBeResult)
                 return geneBeResult
             }
-            console.warn("GeneBe API couldn't resolve the variant, falling back to Ensembl")
+            // Only input the page could not parse itself goes on to Ensembl. With coordinates in
+            // hand the block below returns them directly, so say which of the two actually happens.
+            console.warn(hasLocalParse
+                ? "GeneBe API couldn't resolve the variant; using the parsed coordinates, without consequences"
+                : "GeneBe API couldn't resolve the variant, falling back to Ensembl")
         }
 
         // Coordinates the page parsed itself need no converting, so Ensembl has nothing to do here.
@@ -1796,6 +1800,7 @@
                     // thrown -- the backends check the REF allele themselves and this fallback has
                     // already done the hard part, so it shouldn't be abandoned over it.
                     let vvAnnotation = null
+                    onProgress("Looking up variant consequences using GeneBe...")
                     try {
                         vvAnnotation = await annotateVariantWithGeneBe(
                             vvVariant, genomeVersion, userInputVariant, vvVariant)
@@ -1874,6 +1879,7 @@
             // consequence to show. GeneBe covers those ids, so prefer it and keep VEP's as the fallback.
             // Only for hg19: an hg38 variant that reaches this code has already been through GeneBe.
             if (genomeVersion == '37') {
+                onProgress("Looking up variant consequences using GeneBe...")
                 try {
                     // annotateVariantWithGeneBe answers with null, an annotation, or a bare refAlleleError.
                     // A null or an error means it described some other variant than the one asked about, so
@@ -2621,10 +2627,14 @@
             // inputError marks a message about the variant rather than about this tool (eg. a REF
             // allele the reference genome doesn't have). Both tools return the same one, so show it
             // as written instead of wrapping it in a per-tool prefix that reads like two API
-            // failures. showErrorIfCurrent then collapses the pair down to one.
-            throw Error(apiResponseJson.inputError
+            // failures. handleSubmit shows it once and stops, rather than reporting it per tool.
+            const apiError = Error(apiResponseJson.inputError
                 ? `${apiResponseJson.error}`
                 : `${tool} API call error ${apiResponseJson.error ? `: ${apiResponseJson.error}` : ""}`)
+            // Carried through the throw so handleSubmit can tell "this variant is wrong" apart from
+            // "this one tool failed", and skip the results tables entirely for the former.
+            apiError.inputError = Boolean(apiResponseJson.inputError)
+            throw apiError
         }
 
         if (submissionId !== currentSubmissionId) {
@@ -3906,16 +3916,8 @@
         // can be detected (and their late showError calls suppressed) once a new
         // submission starts.
         const submissionId = ++currentSubmissionId
-        // The SpliceAI and Pangolin backends validate the REF allele independently, so a wrong REF
-        // comes back as the same message from both (unprefixed, via inputError above). Keyed by
-        // message text so it is only shown once.
-        const shownErrors = new Set()
         const showErrorIfCurrent = (msg) => {
-            if (submissionId !== currentSubmissionId) return
-            const key = Array.isArray(msg) ? JSON.stringify(msg) : String(msg)
-            if (shownErrors.has(key)) return
-            shownErrors.add(key)
-            showError(msg)
+            if (submissionId === currentSubmissionId) showError(msg)
         }
         const showNoteIfCurrent = (msg) => {
             if (submissionId === currentSubmissionId) showNote(msg)
@@ -4025,12 +4027,23 @@
                 generateSplicingResultsTable(normalizedVariant, variantConsequence, consequencesByTranscriptId, "SpliceAI", variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltColumns, isPositionOnly, submissionId),
                 generateSplicingResultsTable(normalizedVariant, variantConsequence, consequencesByTranscriptId, "Pangolin", variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltColumns, isPositionOnly, submissionId),
                 isPositionOnly ? Promise.resolve(null) : generateOtherPredictorsTable(normalizedVariant, variantConsequence, variant, genomeVersion, submissionId),
-            ].map(p => p.catch(e => ({'error': e.message}))))  // if an error is thrown, return {'error': e} instead of the JSON response
+            ].map(p => p.catch(e => ({'error': e.message, 'inputError': e.inputError}))))  // if an error is thrown, return {'error': e} instead of the JSON response
 
             if (submissionId !== currentSubmissionId) {
                 //a newer search started while these API calls were in flight. It owns the
                 //display, the loading state, and the url hash from here on, so stop before
                 //overwriting any of them with this search's stale results.
+                return
+            }
+
+            // A rejected REF allele isn't one tool failing, it's the variant being wrong, and every
+            // backend says so. There are no scores to show and the other-predictors table would
+            // otherwise render beneath the error as though the search half-worked, so stop here.
+            const inputError = [spliceaiResponseJson, pangolinResponseJson]
+                .find((r) => r && r.inputError && r.error)
+            if (inputError) {
+                showErrorIfCurrent(`${inputError.error}`)
+                $("#response-box, #spliceai-table, #pangolin-table, #sai10k-table, #transcript-button-table").hide()
                 return
             }
 
@@ -4151,13 +4164,16 @@
         } catch(e) {
             console.error(e)
             showErrorIfCurrent(e.message)
-        }
-
-        //done processing submit, unless a newer search has taken over - it owns the
-        //loading state now, so clearing it here would hide that it's still running
-        if (submissionId === currentSubmissionId) {
-            $("#submit-button").removeClass("loading disabled")
-            clearProgress()
+        } finally {
+            //done processing submit, unless a newer search has taken over - it owns the
+            //loading state now, so clearing it here would hide that it's still running.
+            //In a finally because the try returns early in several places (a superseded
+            //search, a rejected REF allele); without it those paths would leave the button
+            //spinning and disabled, and the progress line frozen mid-search.
+            if (submissionId === currentSubmissionId) {
+                $("#submit-button").removeClass("loading disabled")
+                clearProgress()
+            }
         }
     }
 
