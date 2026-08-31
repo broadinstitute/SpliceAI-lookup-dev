@@ -1263,6 +1263,14 @@
         return `https://genome.ucsc.edu/cgi-bin/hgTracks?db=hg${genomeVers}&position=chr${chromWithoutPrefix}:${pos}`
     }
 
+    const getGeneBeVariantUrl = (genomeVersion, chrom, pos, ref, alt) => {
+        // GeneBe's variant page route is /variant/{hg19|hg38}/{query}
+        const genomeVers = genomeVersion.replace('37', '19')
+        const chromWithoutPrefix = chrom.toUpperCase().replace('CHR', '')
+
+        return `https://genebe.net/variant/hg${genomeVers}/${encodeURIComponent(`${chromWithoutPrefix}-${pos}-${ref}-${alt}`)}`
+    }
+
     const showError = (errorMessage) => {
         // Error messages may include user-entered variant text and server-reflected
         // strings (Ensembl, myvariant.info, our own API). Render as text nodes
@@ -2372,7 +2380,7 @@
         "C": "Canonical transcript",
     }
 
-    const buildVariantCellHtml = (variant, normalizedVariant, genomeVersion, rowspan) => {
+    const buildVariantCellHtml = (variant, normalizedVariant, genomeVersion, rowspan, tdClass = "") => {
         const variantTokens = (normalizedVariant || "---").split("-")
         const chrom = variantTokens[0]
         const pos = variantTokens[1]
@@ -2388,12 +2396,13 @@
              </div>
              <br class="only-large-screen"/>`
 
-        return `<td rowspan="${rowspan}" style="vertical-align: top">
+        return `<td rowspan="${rowspan}"${tdClass ? ` class="${tdClass}"` : ""} style="vertical-align: top">
                     <div style="margin-right:10px; display: inline-block">${escapeHtml(truncateVariantString(variant))}</div><br class="only-large-screen"/>
                     ${normalizedVariantDiv}
                     <br class="only-large-screen"/>
                     <a href="${getUCSCBrowserUrl(genomeVersion, chrom, pos)}" class="small-link" target="_blank">UCSC</a>,
-                    <a href="https://gnomad.broadinstitute.org/variant/${chrom}-${pos}-${ref}-${alt}?dataset=${gnomadVersion}" class="small-link" target="_blank">gnomAD</a>
+                    <a href="https://gnomad.broadinstitute.org/variant/${chrom}-${pos}-${ref}-${alt}?dataset=${gnomadVersion}" class="small-link" target="_blank">gnomAD</a>,
+                    <a href="${getGeneBeVariantUrl(genomeVersion, chrom, pos, ref, alt)}" class="small-link" target="_blank">GeneBe</a>
                     <br class="only-large-screen"/>
 
                 </td>`
@@ -3163,25 +3172,14 @@
         }
 
         console.log("Other predictors scores:", otherPredictorScores)
-        const noDifferenceDueToNormalization = variant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-") == normalizedVariant.toLowerCase().trim().replace(/^chr/, "").replace(/[>: _-]+/g, "-")
-        const normalizedVariantDiv = noDifferenceDueToNormalization ? "" :
-            `<br class="only-large-screen"/>
-             <div style="margin-left:5px;margin-right:10px; display: inline-block; color:#333333">
-                <i>⇒ ${chrom}:${pos} ${truncateAllele(ref)} &gt; ${truncateAllele(alt)}</i>
-             </div>
-             <br class="only-large-screen"/>`
-
 
         const otherPredictorNames = [
             "alphamissense", "cadd", "phylop", "polyphen_max", "primateai3d", "promoterai", "revel_max", "sift_max",
         ]
 
         $(`#other-predictors-header`).nextAll().remove()
-        let firstColumn = `
-            <td class="eight wide column" style="vertical-align: top" rowSpan="${Object.keys(otherPredictorScores).length}">
-                <div style="margin-right:10px; display: inline-block">${escapeHtml(truncateVariantString(variant))}</div><br class="only-large-screen"/>
-                ${normalizedVariantDiv}
-            </td>`
+        let firstColumn = buildVariantCellHtml(
+            variant, normalizedVariant, genomeVersion, Object.keys(otherPredictorScores).length, "eight wide column")
 
 
         const tableRows = []
