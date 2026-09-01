@@ -5,3 +5,24 @@
 
 # Local session history notes
 .memory/
+
+# Code review artifacts
+.code_review/
+.code_review_local/
+
+# Editor and local tooling state
+.idea/
+.playwright-mcp/
+.stfolder/
+
+# Side projects and integration work kept alongside this repo, each far too
+# large to track here (321M, 284M and 120M respectively)
+SAI-10k-calc/
+absplice-integration/
+splice-vault-integration/
+
+# Local data and scratch files
+SpliceVault_data_GRCh38.tsv.gz.tbi
+igv.min.js.prev
+cors-config.json
+sai10k_flowchart.html
