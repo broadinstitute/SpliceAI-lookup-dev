@@ -1946,8 +1946,7 @@
          * The coordinates come back resolved, but the consequences come back still in flight, so the
          * caller can send the SpliceAI and Pangolin requests the moment it has coordinates rather than
          * waiting on an annotation none of them need. Nothing about the scores depends on it: the
-         * backends only write variant_consequence to their log, and this page uses it when the results
-         * tables render.
+         * consequence is only used by this page, when the results tables render.
          *
          * Input this page's own regexp can parse is already in the target form and returns without
          * waiting on anything. Only HGVS notation has to be resolved. hg38 asks GeneBe and Ensembl at
@@ -2052,7 +2051,7 @@
 
         // hg19: Ensembl resolves the coordinates on its own, and its error text is what the user sees
         // when it can't, so this one is awaited rather than raced.
-        onProgress("Converting HGVS notation to chrom-pos-ref-alt using Ensembl...")
+        onProgress("Converting HGVS notation to chrom-pos-ref-alt using the Ensembl API")
         let resolved
         try {
             resolved = await resolveHgvsWithEnsembl(variant, genomeVersion)
@@ -4227,9 +4226,8 @@
                 showNoteIfCurrent(`Note: ${warning}`)
             }
 
-            // The consequence isn't sent with these requests, since on most searches it isn't known
-            // yet. The backends only write variant_consequence to their log, so that costs a log
-            // column rather than anything the user sees, where waiting for it would undo the point of
+            // The consequence isn't sent with these requests: the backends have no use for it, and
+            // on most searches it isn't known yet anyway. Waiting for it would undo the point of
             // starting these as soon as the coordinates were known.
             showProgressIfCurrent("Computing SpliceAI and Pangolin scores...")
             let [spliceaiResponseJson, pangolinResponseJson, otherPredictorsResponseJson] = await Promise.all([
@@ -4306,20 +4304,6 @@
                     return
                 }
                 fillInTranscriptConsequences(consequence, consequencesByTranscriptId)
-
-                // The scoring requests went out before this was known, so they could not carry it.
-                // Report it separately to keep the log's variant_consequence column populated, which
-                // is what the consequence-distribution queries in connect_to_db.sh read. Sent and
-                // forgotten: it records what already happened, so a failure must not surface to the
-                // user or disturb the results on screen.
-                if (consequence) {
-                    const enc = encodeURIComponent
-                    makeRequest(`${baseApiUrl['pangolin-37']}/log/variant_consequence`
-                        + `?variant=${enc(normalizedVariant)}&hg=${enc(genomeVersion)}`
-                        + `&bc=${enc(basicOrComprehensive)}&distance=${enc(maxDistance)}&mask=${enc(mask)}`
-                        + `&variant_consequence=${enc(consequence)}`
-                    ).catch((e) => console.warn("Could not log the variant consequence:", e))
-                }
 
                 // Show a note if the VariantValidator fallback was used, rather than an error: it
                 // qualifies the scores on screen and belongs above them. Held until here because
