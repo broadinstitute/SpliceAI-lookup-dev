@@ -4307,6 +4307,20 @@
                 }
                 fillInTranscriptConsequences(consequence, consequencesByTranscriptId)
 
+                // The scoring requests went out before this was known, so they could not carry it.
+                // Report it separately to keep the log's variant_consequence column populated, which
+                // is what the consequence-distribution queries in connect_to_db.sh read. Sent and
+                // forgotten: it records what already happened, so a failure must not surface to the
+                // user or disturb the results on screen.
+                if (consequence) {
+                    const enc = encodeURIComponent
+                    makeRequest(`${baseApiUrl['pangolin-37']}/log/variant_consequence`
+                        + `?variant=${enc(normalizedVariant)}&hg=${enc(genomeVersion)}`
+                        + `&bc=${enc(basicOrComprehensive)}&distance=${enc(maxDistance)}&mask=${enc(mask)}`
+                        + `&variant_consequence=${enc(consequence)}`
+                    ).catch((e) => console.warn("Could not log the variant consequence:", e))
+                }
+
                 // Show a note if the VariantValidator fallback was used, rather than an error: it
                 // qualifies the scores on screen and belongs above them. Held until here because
                 // whether the consequence is missing is part of what it says.
