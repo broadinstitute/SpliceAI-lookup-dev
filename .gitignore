@@ -24,5 +24,3 @@ splice-vault-integration/
 # Local data and scratch files
 SpliceVault_data_GRCh38.tsv.gz.tbi
 igv.min.js.prev
-cors-config.json
-sai10k_flowchart.html
