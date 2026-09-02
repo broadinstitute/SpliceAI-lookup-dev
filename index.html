@@ -2060,7 +2060,7 @@
 
         // hg19: Ensembl resolves the coordinates on its own, and its error text is what the user sees
         // when it can't, so this one is awaited rather than raced.
-        onProgress("Converting HGVS notation to chrom-pos-ref-alt using the Ensembl API")
+        onProgress("Converting HGVS notation to chrom-pos-ref-alt using the Ensembl API...")
         let resolved
         try {
             resolved = await resolveHgvsWithEnsembl(variant, genomeVersion)
