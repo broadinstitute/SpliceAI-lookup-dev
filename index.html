@@ -25,10 +25,13 @@
             "pangolin-38-comprehensive": "https://pangolin-38-comprehensive-xwkwwwxdwq-uc.a.run.app",
             "spliceai-37-comprehensive": "https://spliceai-37-comprehensive-xwkwwwxdwq-uc.a.run.app",
             "spliceai-38-comprehensive": "https://spliceai-38-comprehensive-xwkwwwxdwq-uc.a.run.app",
+            // AlphaMissense, PrimateAI-3D, PromoterAI, and AVI scores for one variant, looked up in the
+            // precomputed tables by google_cloud_run_services/score_lookup
+            "score-lookup": "https://score-lookup-xwkwwwxdwq-uc.a.run.app",
         }
 
-        // Route spliceai/pangolin requests to their 'dev'-tagged Cloud Run
-        // revisions (deployed by build_and_deploy.py --dev) when EITHER:
+        // Route requests to each service's 'dev'-tagged Cloud Run revision (deployed by
+        // build_and_deploy.py --dev, or score_lookup/deploy.py --dev) when EITHER:
         //   - this page is served from the dev site, so it always talks to the
         //     dev API without needing a URL flag, OR
         //   - the URL hash contains api=dev (manual override, e.g. for local
@@ -51,7 +54,7 @@
             for (const k of Object.keys(baseApiUrl)) {
                 baseApiUrl[k] = baseApiUrl[k].replace(/^https:\/\//, "https://dev---")
             }
-            console.log("Routing spliceai/pangolin requests to dev revisions:", baseApiUrl)
+            console.log("Routing API requests to dev revisions:", baseApiUrl)
         }
     </script>
     <meta content="width=device-width, initial-scale=1" charset="utf-8" name="viewport"/>
@@ -62,7 +65,6 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/underscore@1.12.0/underscore-min.js"></script>
-    <script type="text/javascript" src="https://unpkg.com/@gmod/tabix@1.6.1/dist/tabix-bundle.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/broadinstitute/SpliceAI-lookup-dev@main/igv.min.js"></script>
     <!-- script type="text/javascript" src="igv.min.js"></script -->
 
@@ -1233,32 +1235,6 @@
         }
 
         return `style='white-space:nowrap;background-color:${color};'`
-    }
-
-    const { TabixIndexedFile } = window.gmodTABIX
-
-    const primateAndPromoterAiTableUrls = {
-        '37': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_and_PromoterAI_scores.hg19.20250627.tsv.gz',
-        '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/PrimateAI_and_PromoterAI_scores.hg38.20250627.tsv.gz',
-    }
-    const primateAndPromoterAiTables = {
-        '37': new TabixIndexedFile({ url: primateAndPromoterAiTableUrls['37'], tbiUrl: `${primateAndPromoterAiTableUrls['37']}.tbi` }),
-        '38': new TabixIndexedFile({ url: primateAndPromoterAiTableUrls['38'], tbiUrl: `${primateAndPromoterAiTableUrls['38']}.tbi` }),
-    }
-
-    const alphaMissenseTableUrls = {
-        '37': 'https://storage.googleapis.com/spliceai-lookup-reference-data/AlphaMissense_hg19.tsv.gz',
-        '38': 'https://storage.googleapis.com/spliceai-lookup-reference-data/AlphaMissense_hg38.tsv.gz',
-    }
-    const alphaMissenseTables  = {
-        '37': new TabixIndexedFile({ url: alphaMissenseTableUrls['37'], tbiUrl: `${alphaMissenseTableUrls['37']}.tbi` }),
-        '38': new TabixIndexedFile({ url: alphaMissenseTableUrls['38'], tbiUrl: `${alphaMissenseTableUrls['38']}.tbi` }),
-    }
-
-    // Google DeepMind only released AVI scores for hg38, so hg19 searches list AVI as not available
-    const alphaGenomeAviTableUrl = 'https://storage.googleapis.com/spliceai-lookup-reference-data/AlphaGenome_AVI_SNV_scores.hg38.tsv.gz'
-    const alphaGenomeAviTables = {
-        '38': new TabixIndexedFile({ url: alphaGenomeAviTableUrl, tbiUrl: `${alphaGenomeAviTableUrl}.tbi` }),
     }
 
     const getUCSCBrowserUrl = (genomeVersion, chrom, pos) => {
@@ -3340,11 +3316,11 @@
 
 
     const generateOtherPredictorsTable = async (normalizedVariant, variant, genomeVersion, submissionId) => {
-        /* Generate the 'Other scores' table from the PrimateAI-3D / PromoterAI lookup
-           tables and the gnomAD and myvariant.info queries.
+        /* Generate the 'Other scores' table from the score-lookup service (the AlphaMissense,
+           PrimateAI-3D / PromoterAI, and AVI lookup tables) and the gnomAD and myvariant.info queries.
            submissionId identifies the handleSubmit call this table belongs to, so a slow
            response can be discarded once a newer search has superseded it. */
-        console.log(`Generating other scores table for ${normalizedVariant} from ${primateAndPromoterAiTableUrls[genomeVersion]}`)
+        console.log(`Generating other scores table for ${normalizedVariant}`)
 
         const variantTokens = (normalizedVariant || "---").split("-")
         const chrom = `chr${variantTokens[0].replace("chr", "")}`
@@ -3356,88 +3332,28 @@
 
         const otherPredictorScores = {}
         const queryLookupTable = async () => {
-            // Caught the way queryGnomAD and queryMyVariantInfo catch theirs: a failed range request
-            // against one reference-data file should cost only that file's scores, not abort the caller
-            // before it rebuilds the table and leave the previous search's rows on screen. allSettled
-            // rather than all, so one file failing fast doesn't stop the wait for the others' lines.
-            const lookupResults = await Promise.allSettled([
-                primateAndPromoterAiTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
-                    //console.log("Got line:", line)
-                    const fields = line.split('\t')
-                    const linePos = parseInt(fields[1])
-                    const lineRef = fields[2]
-                    const lineAlt = fields[3]
-
-                    if (linePos != pos || lineRef != ref || lineAlt != alt) {
-                        return
-                    }
-                    const percentile = parseFloat(fields[4])
-                    const genePercentilethreshold = parseFloat(fields[5])
-                    //console.log("PrimateAI-3D", percentile, genePercentilethreshold)
-                    if (!isNaN(percentile)) {
-                        otherPredictorScores['primateai3d']  = {
-                            'percentile': percentile,
-                            'genePercentileThreshold': genePercentilethreshold,
-                        }
-                    }
-                    const promoterAiScore = parseFloat(fields[6])
-                    //console.log("PromoterAI", promoterAiScore)
-                    if (!isNaN(promoterAiScore)) {
-                        otherPredictorScores['promoterai'] = {
-                            'score': promoterAiScore,
-                        }
-                    }
-                },),
-
-                alphaMissenseTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
-                    const fields = line.split('\t')
-                    const linePos = parseInt(fields[1])
-                    const lineRef = fields[2]
-                    const lineAlt = fields[3]
-
-                    if (linePos != pos || lineRef != ref || lineAlt != alt) {
-                        return
-                    }
-                    //const transcriptId = fields[6]
-                    //const proteinVariant = fields[7]
-                    //const consequence = fields[9]  //benign, ambiguous, pathogenic
-                    const alphaMissenseScore = parseFloat(fields[8])
-
-                    //console.log("AlphaMissense", alphaMissenseScore)
-                    if (!isNaN(alphaMissenseScore)) {
-                        otherPredictorScores['alphamissense'] = {
-                            'score': alphaMissenseScore,
-                            //'transcriptId': transcriptId,
-                            //'proteinVariant': proteinVariant,
-                            //'consequence': consequence,
-                        }
-                    }
-                },),
-
-                genomeVersion in alphaGenomeAviTables && alphaGenomeAviTables[genomeVersion].getLines(chrom, pos-1, pos, line => {
-                    const fields = line.split('\t')  // #CHROM, POS, REF, ALT, raw_score, PHRED
-                    const linePos = parseInt(fields[1])
-                    const lineRef = fields[2]
-                    const lineAlt = fields[3]
-
-                    if (linePos != pos || lineRef != ref || lineAlt != alt) {
-                        return
-                    }
-                    const rawScore = parseFloat(fields[4])
-                    const phredScore = parseFloat(fields[5])
-                    if (!isNaN(rawScore) && !isNaN(phredScore)) {
-                        otherPredictorScores['alphagenome_avi'] = {
-                            'rawScore': rawScore,
-                            'phredScore': phredScore,
-                        }
-                    }
-                },),
-            ])
-            for (const result of lookupResults) {
-                if (result.status === "rejected") {
-                    console.error("Lookup table query failed:", result.reason)
+            // One request to the score-lookup service returns this variant's AlphaMissense, PrimateAI-3D,
+            // PromoterAI, and AVI scores. Failures are caught the way queryGnomAD and queryMyVariantInfo
+            // catch theirs: they should cost only these scores, not abort the caller before it rebuilds
+            // the table and leave the previous search's rows on screen.
+            let responseJson
+            try {
+                const params = new URLSearchParams({hg: genomeVersion, chrom, pos, ref, alt})
+                const response = await fetch(`${baseApiUrl["score-lookup"]}/?${params}`)
+                if (!response.ok) {
+                    console.error(`Score lookup failed with HTTP ${response.status}:`, await response.text())
+                    return
                 }
+                responseJson = await response.json()
+            } catch (e) {
+                console.error("Score lookup failed:", e)
+                return
             }
+            // The service still returns the other tables' scores when one table's query fails
+            for (const tableError of responseJson.errors || []) {
+                console.error(`Score lookup in the ${tableError.table} table failed:`, tableError.message)
+            }
+            Object.assign(otherPredictorScores, responseJson.scores)
         }
 
         const queryGnomAD = async () => {
