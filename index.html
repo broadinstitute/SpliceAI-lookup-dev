@@ -3511,8 +3511,11 @@
                 }
             } else if (otherPredictorName == "alphagenome_avi") {
                 if (otherPredictor) {
-                    // No shading or points: the AVI authors publish no pathogenicity thresholds
-                    row += `<td class="three wide column" style="vertical-align: top; white-space: nowrap">${otherPredictor.phredScore.toFixed(2)} &nbsp; (raw score: ${otherPredictor.rawScore.toFixed(3)}) &nbsp; ${helpIcon}</td><td class="one wide column"></td></tr>`
+                    // No shading or points: the AVI authors publish no pathogenicity thresholds.
+                    // The PHRED score is -10*log10(p), so 10^(-PHRED/10) recovers p, the fraction of
+                    // all hg38 SNVs this variant's raw score outranks.
+                    const topPercent = 100 * Math.pow(10, -otherPredictor.phredScore / 10)
+                    row += `<td class="three wide column" style="vertical-align: top; white-space: nowrap">${otherPredictor.phredScore.toFixed(2)} &nbsp; (top ${topPercent.toFixed(1)}% of all SNVs) &nbsp; ${helpIcon}</td><td class="one wide column"></td></tr>`
                     tableRows.push(row)
                     firstColumn = ""
                 } else {
