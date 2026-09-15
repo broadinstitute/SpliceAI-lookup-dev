@@ -1264,6 +1264,13 @@
         return `https://genebe.net/variant/hg${genomeVers}/${encodeURIComponent(`${chromWithoutPrefix}-${pos}-${ref}-${alt}`)}`
     }
 
+    const getAlphaGenomeAtlasUrl = (chrom, pos, ref, alt) => {
+        // The atlas is windowed +/-100bp around the variant. Like the AVI scores it links to, it's hg38 only.
+        const chromWithoutPrefix = chrom.toUpperCase().replace('CHR', '')
+        const params = `q=chr${chromWithoutPrefix}:${pos}:${ref}%3E${alt}&m=variant&i=chr${chromWithoutPrefix}:${pos - 100}-${pos + 100}&lItems=avi,section:RNA_SEQ,section:DNASE,section:DNASE:REF_SCORES&md=SPLICE_SITE_USAGE`
+        return `https://deepmind.google.com/science/alphagenome/atlas?${params}`
+    }
+
     const appendMessageToBox = ($box, message) => {
         // Messages may include user-entered variant text and server-reflected
         // strings (Ensembl, myvariant.info, GeneBe, our own API). Render as text nodes
@@ -2685,7 +2692,8 @@
                     <br class="only-large-screen"/>
                     <a href="${getUCSCBrowserUrl(genomeVersion, chrom, pos)}" class="small-link" target="_blank">UCSC</a>,
                     <a href="https://gnomad.broadinstitute.org/variant/${chrom}-${pos}-${ref}-${alt}?dataset=${gnomadVersion}" class="small-link" target="_blank">gnomAD</a>,
-                    <a href="${getGeneBeVariantUrl(genomeVersion, chrom, pos, ref, alt)}" class="small-link" target="_blank">GeneBe</a>
+                    <a href="${getGeneBeVariantUrl(genomeVersion, chrom, pos, ref, alt)}" class="small-link" target="_blank">GeneBe</a>${genomeVersion == '38' ? `,
+                    <a href="${getAlphaGenomeAtlasUrl(chrom, pos, ref, alt)}" class="small-link" target="_blank">AlphaGenome</a>` : ""}
                     <br class="only-large-screen"/>
 
                 </td>`
@@ -3515,7 +3523,7 @@
                     // The PHRED score is -10*log10(p), so 10^(-PHRED/10) recovers p, the fraction of
                     // all hg38 SNVs this variant's raw score outranks.
                     const topPercent = 100 * Math.pow(10, -otherPredictor.phredScore / 10)
-                    row += `<td class="three wide column" style="vertical-align: top; white-space: nowrap">${otherPredictor.phredScore.toFixed(2)} &nbsp; (top ${topPercent.toFixed(1)}% of all SNVs) &nbsp; ${helpIcon}</td><td class="one wide column"></td></tr>`
+                    row += `<td class="three wide column" style="vertical-align: top; white-space: nowrap"><a href="${getAlphaGenomeAtlasUrl(chrom, pos, ref, alt)}" target="_blank">${otherPredictor.phredScore.toFixed(2)}</a> &nbsp; (top ${topPercent.toFixed(1)}% of all SNVs) &nbsp; ${helpIcon}</td><td class="one wide column"></td></tr>`
                     tableRows.push(row)
                     firstColumn = ""
                 } else {
