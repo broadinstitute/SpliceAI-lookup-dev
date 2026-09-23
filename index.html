@@ -1113,7 +1113,7 @@
 
     const helpTextForPredictorScores = {
         "alphagenome_avi": (record) => `<a href='https://storage.googleapis.com/deepmind-media/DeepMind.com/Blog/alphagenome-atlas-a-predictive-map-of-every-possible-dna-letter-change-in-the-human-genome/alphagenome-atlas.pdf' target='_blank'>AlphaGenome Variant Impact (AVI)</a> scores combine AlphaGenome regulatory predictions with AlphaMissense, protein-truncation annotations, and conservation to score both coding and non-coding SNVs. The PHRED score ranks the raw score against all possible hg38 SNVs: 10 is the top 10%, 20 the top 1%, and 30 the top 0.1%. The authors do not define a pathogenicity threshold, and recommend ranking variants rather than applying a fixed cutoff. Precomputed AVI scores are only available for hg38, and are provided by Google DeepMind for research use only.`,
-        "primateai3d":(record) => `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are shown with a red background to indicate a 'likely deleterious' prediction.`,
+        "primateai3d": (record) => `<a href='https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10187174/' target='_blank'>PrimateAI-3D</a> gene-specific thresholds are provided by the authors. Values above the threshold are shown with a red background to indicate a 'likely deleterious' prediction.`,
         "promoterai": (record) => `<a href='https://www.science.org/doi/10.1126/science.ads7373' target='_blank'>PromoterAI</a>  &nbsp; <a href='https://github.com/Illumina/PromoterAI' target='_blank'><i class='github square icon'></i></a> &nbsp; scores range from -1 to 1 with 0 meaning no activity. Negative values represent under-expression and positive values represent over-expression. A threshold of +/-0.1 is used for high sensitivity, and +/-0.5 for high precision.`,
         "cadd": (record) => computeHelpTextForPredictorScores("cadd", record),
         "revel_max": (record) => computeHelpTextForPredictorScores("revel_max", record),
@@ -1419,6 +1419,33 @@
             end++
         }
         return `${ref.slice(start, ref.length - end)}/${alt.slice(start, alt.length - end)}`
+    }
+
+    const trimSharedBases = (pos, ref, alt) => {
+        /* Trim the bases REF and ALT share, giving the shortest spelling of a variant: 55057513 TG>TA
+         * becomes 55057514 G>A. It's the spelling the SpliceAI and Pangolin services score, and
+         * trim_shared_bases in server.py trims the same way. Shared bases at the end go first, then shared
+         * bases at the start, and each allele keeps at least one base, so an insertion or deletion keeps
+         * its anchor base. Unlike left-alignment, this never shifts an indel through a repeat.
+         *
+         * Args:
+         *  pos (number): 1-based position
+         *  ref (string): reference allele
+         *  alt (string): alternate allele
+         *
+         * Return:
+         *  object: {pos, ref, alt}
+         */
+        while (ref.length > 1 && alt.length > 1 && ref[ref.length - 1] == alt[alt.length - 1]) {
+            ref = ref.slice(0, -1)
+            alt = alt.slice(0, -1)
+        }
+        while (ref.length > 1 && alt.length > 1 && ref[0] == alt[0]) {
+            ref = ref.slice(1)
+            alt = alt.slice(1)
+            pos += 1
+        }
+        return {pos, ref, alt}
     }
 
     const transcriptIdKey = (transcriptId) => {
@@ -1777,8 +1804,8 @@
         }
     }
 
-    const consequencesFrom = async (annotationPromise, fallbackPromise = null) => {
-        /* Reduce a consequence lookup to the two fields the results tables use.
+    const consequencesFrom = async (annotationPromise, fallbackPromise = null, genomeVersion = null) => {
+        /* Reduce a consequence lookup to the fields the results tables and lookups use.
 
          * GeneBe is always the first argument. Its answer is preferred wherever both are available,
          * because it covers the Gencode-lifted transcript ids the score tables carry far better than
@@ -1792,9 +1819,13 @@
          *  annotationPromise (Promise): the preferred lookup, resolving to an annotation or to null
          *  fallbackPromise (Promise|object): what to use when the preferred lookup found nothing.
          *      May be an annotation that has already been obtained, or null when there is no fallback
+         *  genomeVersion (string): "37", "38", or null to withhold normalizedVariant. GeneBe answers
+         *      an hg19 query with hg38 coordinates, so its spelling describes the right variant on
+         *      the wrong build there and must not be used for lookups; only "38" surfaces it.
          *
          * Return:
-         *  object: {consequence, consequencesByTranscriptId}, both null when neither had an answer
+         *  object: {consequence, consequencesByTranscriptId, normalizedVariant}, all null when
+         *      neither source had an answer
          */
         const annotation = await annotationPromise
         if (annotation && annotation.refAlleleError) {
@@ -1812,6 +1843,11 @@
         return {
             'consequence': usable ? usable.consequence || null : null,
             'consequencesByTranscriptId': usable ? usable.consequencesByTranscriptId || null : null,
+            // The resolver's own spelling of the variant. GeneBe left-aligns indels, and that is the
+            // spelling gnomAD, myvariant.info and the precomputed score tables index, where the services
+            // score the trimmed spelling (see trimSharedBases), which inside a repeat can be a different
+            // one. Callers use this for those lookups and to repoint the external links.
+            'normalizedVariant': genomeVersion == '38' && usable ? usable.variant || null : null,
         }
     }
 
@@ -1836,7 +1872,8 @@
         const parsedVariant = `${chrom}-${pos}-${ref}-${alt}`
         return consequencesFrom(
             annotateVariantWithGeneBe(parsedVariant, genomeVersion, userInputVariant, parsedVariant),
-            genomeVersion == '38' ? annotateVariantWithEnsembl(chrom, pos, ref, alt, genomeVersion) : null)
+            genomeVersion == '38' ? annotateVariantWithEnsembl(chrom, pos, ref, alt, genomeVersion) : null,
+            genomeVersion)
     }
 
     const ensemblRejection = (message) => {
@@ -1885,7 +1922,12 @@
         }
         const matchedRegExp = String(responseJson[0].vcf_string).match(VARIANT_RE)
         if (!matchedRegExp) {
-            throw ensemblRejection(`Unexpected response: ${JSON.stringify(responseJson)}`)
+            // Deliberately not an ensemblRejection: Ensembl did resolve the variant, and what
+            // failed is VARIANT_RE, which only accepts the primary contigs and plain ACGT alleles
+            // this page can score. An answer on an alt contig or patch lands here, and that is a
+            // limit of this parser rather than a verdict on the variant -- so the hg19 path must
+            // stay free to try VariantValidator, which may return a primary-assembly coordinate.
+            throw Error(`Unexpected response: ${JSON.stringify(responseJson)}`)
         }
         return {
             'variant': `${matchedRegExp[2].toUpperCase()}-${parseInt(matchedRegExp[3])}`
@@ -1974,10 +2016,11 @@
             // scoring requests instead of ahead of them.
             //
             // hg38 used to hand back GeneBe's own left-aligned spelling of these coordinates instead
-            // (1-1000095-CGC-C came back as 1-1000094-CCG-C). It now scores exactly what was typed,
+            // (1-1000095-CGC-C came back as 1-1000094-CCG-C). It now sends exactly what was typed,
             // the way hg19 always has. Waiting on GeneBe purely to re-spell the variant is the delay
-            // this avoids, and the backends neither normalize nor care which equivalent spelling of
-            // an indel they are given.
+            // this avoids. The backends don't left-align either: they only trim the bases REF and ALT
+            // share (see trimSharedBases), after checking the full REF, which is why the untrimmed
+            // spelling is the one sent.
             const chrom = matchedRegExp[2].toUpperCase()
             const pos = parseInt(matchedRegExp[3].replace(/,/g, ""))
             const ref = matchedRegExp[4].toUpperCase()
@@ -2033,7 +2076,8 @@
                         : consequencesFrom(
                             annotateVariantWithGeneBe(
                                 resolved.variant, genomeVersion, userInputVariant, resolved.variant),
-                            resolved),
+                            resolved,
+                            genomeVersion),
                 }
             }
             const fallback = await resolveHgvsWithVariantValidator(
@@ -2094,7 +2138,8 @@
             'variant': resolved.variant,
             'consequencesPromise': consequencesFrom(
                 annotateVariantWithGeneBe(resolved.variant, genomeVersion, userInputVariant, resolved.variant),
-                resolved),
+                resolved,
+                genomeVersion),
         }
     }
 
@@ -2418,13 +2463,38 @@
         return ""
     }
 
-    const isAnnotatedExonBoundary = (pos, scores) => {
-        /* Whether pos is an annotated exon boundary of this transcript, which is what both models
-           mask against. Deliberately not getExonNoteForPosition: that one labels splice sites and
-           so skips the transcript's outermost boundaries, while the models mask against every
-           boundary (spliceai's get_pos_data unions exon_starts with exon_ends; pangolin's
-           process_variant uses the transcript's full position list). */
-        return (scores['EXON_STARTS'] || []).includes(pos) || (scores['EXON_ENDS'] || []).includes(pos)
+    const hasExonAnnotation = (context) => (
+        /* Whether the API sent this transcript's exon coordinates at all. They are optional:
+           server.py leaves EXON_STARTS/EXON_ENDS out of a transcript's scores when the database
+           is unavailable (the self-hosted setup runs without one) and when the transcript has no
+           row in transcripts_hgNN, returning the rest of the response either way. Masking is
+           defined against those boundaries, so with none of them present the answer is "unknown",
+           not "unannotated" -- see maskPerPositionDelta. */
+        (context.scores['EXON_STARTS'] || []).length > 0 || (context.scores['EXON_ENDS'] || []).length > 0
+    )
+
+    const isMaskingSite = (pos, context) => {
+        /* Whether pos is a site that masking treats as annotated. The two models disagree here.
+           Pangolin masks against every annotated position of the transcript (pangolin.py's
+           process_variant), so membership in EXON_STARTS/EXON_ENDS is the test. SpliceAI masks
+           against only the single exon boundary nearest the variant: its get_pos_data keeps
+           min(union(exon_starts, exon_ends) - pos, key=abs), so its masked output reports a loss
+           at any other annotated boundary as 0.00, and this table has to say the same. Python's
+           min keeps the first of equally near boundaries and numpy's union is sorted, so a tie
+           goes to the smaller coordinate. Deliberately not getExonNoteForPosition: that one
+           labels splice sites and so skips the transcript's outermost boundaries, while both
+           models count every boundary. */
+        const boundaries = [...(context.scores['EXON_STARTS'] || []), ...(context.scores['EXON_ENDS'] || [])]
+        if (context.tool != "spliceai") {
+            return boundaries.includes(pos)
+        }
+        let nearest = null
+        for (const boundary of boundaries.sort((a, b) => a - b)) {
+            if (nearest === null || Math.abs(boundary - context.variantPos) < Math.abs(nearest - context.variantPos)) {
+                nearest = boundary
+            }
+        }
+        return nearest !== null && pos == nearest
     }
 
     const maskPerPositionDelta = ([, kind, compute], row, context) => {
@@ -2435,12 +2505,17 @@
            unmasked would contradict the main results table, which reports 0.00 for exactly these
            cases. Both models define masking the same way (spliceai's --mask, pangolin's -m): a
            gain at an annotated splice site is not a gain, because the site is already there, and a
-           loss at an unannotated site is not a loss, because there was no site to lose. */
+           loss at an unannotated site is not a loss, because there was no site to lose. They differ
+           only in which sites count as annotated; see isMaskingSite. */
         const delta = compute(row)
-        if (!context.mask || delta == 0) {
+        if (!context.mask || delta == 0 || !hasExonAnnotation(context)) {
+            /* With no exon coordinates, isMaskingSite would answer "not annotated" for every
+               position, which zeroes every loss delta in the table and the CSV while the REF and
+               ALT columns beside them still show the drop the loss came from. Show the unmasked
+               delta instead, and say so above the table (see renderScoreTableFromRows). */
             return delta
         }
-        return isAnnotatedExonBoundary(row.pos, context.scores) == (kind == "gain") ? 0 : delta
+        return isMaskingSite(row.pos, context) == (kind == "gain") ? 0 : delta
     }
 
     const buildPerPositionRows = (rows, context) => {
@@ -2487,7 +2562,14 @@
                     </tr>`
         })
 
-        return `<table class="ui celled table">
+        // Masking is the user's setting, so when it silently could not be applied the table has to
+        // say so -- otherwise the Δ columns read as masked scores that happen to be unmasked.
+        const maskingNote = context.mask && !hasExonAnnotation(context)
+            ? `<div style="padding-bottom:0.5em">The exon coordinates for this transcript were not returned, so the &#916; columns below are unmasked.</div>`
+            : ""
+
+        return `${maskingNote}
+                <table class="ui celled table">
                     <thead>
                         <tr style="text-align:center">
                             <!-- width:1% shrinks a column to its content, so whichever column
@@ -2691,9 +2773,9 @@
                     ${normalizedVariantDiv}
                     <br class="only-large-screen"/>
                     <a href="${getUCSCBrowserUrl(genomeVersion, chrom, pos)}" class="small-link" target="_blank">UCSC</a>,
-                    <a href="https://gnomad.broadinstitute.org/variant/${chrom}-${pos}-${ref}-${alt}?dataset=${gnomadVersion}" class="small-link" target="_blank">gnomAD</a>,
-                    <a href="${getGeneBeVariantUrl(genomeVersion, chrom, pos, ref, alt)}" class="small-link" target="_blank">GeneBe</a>${genomeVersion == '38' ? `,
-                    <a href="${getAlphaGenomeAtlasUrl(chrom, pos, ref, alt)}" class="small-link" target="_blank">AlphaGenome</a>` : ""}
+                    <a href="https://gnomad.broadinstitute.org/variant/${chrom}-${pos}-${ref}-${alt}?dataset=${gnomadVersion}" class="small-link gnomad-variant-link" target="_blank">gnomAD</a>,
+                    <a href="${getGeneBeVariantUrl(genomeVersion, chrom, pos, ref, alt)}" class="small-link genebe-variant-link" target="_blank">GeneBe</a>${genomeVersion == '38' ? `,
+                    <a href="${getAlphaGenomeAtlasUrl(chrom, pos, ref, alt)}" class="small-link alphagenome-variant-link" target="_blank">AlphaGenome</a>` : ""}
                     <br class="only-large-screen"/>
 
                 </td>`
@@ -2741,13 +2823,40 @@
             }
         })
 
-        // The ACMG-style points in the 'Other scores' table, and the shading derived from them, only
-        // apply to a missense variant
-        const isMissense = Boolean(consequence && consequence.toLowerCase().includes("missense"))
-        $(".missense-points span").toggle(isMissense)
-        $(".missense-shaded").each(function () {
-            $(this).css("background-color", isMissense ? $(this).data("missense-bg") : "")
-        })
+        showMissensePointsIfMissense(consequence)
+    }
+
+    const showMissensePointsIfMissense = (consequence) => {
+        /* Reveal the ACMG-style points numbers in the 'Other scores' table, which only apply to a
+         * missense variant. The cells' shading does not depend on the consequence and is painted
+         * when the table is built, so only the number is handled here.
+
+         * Split out because the two things this depends on land in either order: the consequence
+         * lookup answers on its own schedule, and so does the table whose cells this reveals.
+         * Whichever finishes second has to apply it, so both call this. It is a plain toggle over
+         * whatever is in the DOM, so calling it twice costs nothing.
+         */
+        $(".missense-points span").toggle(
+            Boolean(consequence && consequence.toLowerCase().includes("missense")))
+    }
+
+    const pointVariantLinksAtNormalizedSpelling = (normalizedVariant, genomeVersion) => {
+        /* Repoint the gnomAD and GeneBe links at the left-aligned spelling of the variant.
+
+         * Both sites are keyed by the left-aligned spelling, so for an indel inside a repeat the links
+         * built from the trimmed spelling the services score (see trimSharedBases) can lead nowhere.
+         * The variant cell still shows what was typed, since that is what was searched for; only where
+         * the links point changes.
+         *
+         * Args:
+         *  normalizedVariant (string): the left-aligned "{chrom}-{pos}-{ref}-{alt}"
+         *  genomeVersion (string): "37" or "38"
+         */
+        const [chrom, pos, ref, alt] = normalizedVariant.split("-")
+        $("a.gnomad-variant-link").attr("href",
+            `https://gnomad.broadinstitute.org/variant/${chrom}-${pos}-${ref}-${alt}`
+                + `?dataset=${getGnomadDataVersion(genomeVersion)}`)
+        $("a.genebe-variant-link").attr("href", getGeneBeVariantUrl(genomeVersion, chrom, pos, ref, alt))
     }
 
     const buildTranscriptCellHtml = (scores, genomeVersion, rowspan, perPositionIconHtml = "") => {
@@ -2821,9 +2930,16 @@
         // call actually builds too, so that case reports the real reason rather than letting
         // gunicorn answer with an HTML page the UI can't read.
         if (urlArgs.length > MAX_QUERY_STRING_LENGTH) {
-            throw Error(`This variant is too long for the ${tool} API: its REF and ALT alleles make the `
+            // inputError for the same reason the API-error path below sets it: this is a fact
+            // about the variant, not about one tool. urlArgs carries no tool name (the tool is in
+            // the path), so both calls build the same length and both throw; without the flag,
+            // handleSubmit's inputError check misses them and prints the message once per tool
+            // under a results box it has already shown. Worded without the tool name to match.
+            const tooLong = Error(`This variant is too long for the API: its REF and ALT alleles make the `
                 + `request ${urlArgs.length.toLocaleString()} characters, over the `
                 + `${MAX_QUERY_STRING_LENGTH.toLocaleString()} character limit.`)
+            tooLong.inputError = true
+            throw tooLong
         }
 
         let apiResponse
@@ -2859,6 +2975,12 @@
         if (isPositionOnly) {
             return generatePositionOnlyResultsTable(apiResponseJson, tool, variant, chrom, pos, genomeVersion)
         }
+
+        // The service scores the shortest spelling of the variant (see trimSharedBases) and measures every
+        // position in its response from it, so the rows below use the spelling it scored, not the one sent.
+        const scoredPos = parseInt(apiResponseJson.pos)
+        const scoredRef = apiResponseJson.ref
+        const scoredAlt = apiResponseJson.alt
 
         // Restore the shared table headers to their normal (delta-score) wording, in case
         // a prior search on this page was a position-only (REF-only) search that relabeled them.
@@ -2921,7 +3043,7 @@
             }
 
             const variantCellHtml = transcriptIndex === 0
-                ? buildVariantCellHtml(variant, normalizedVariant, genomeVersion, subRowCount)
+                ? buildVariantCellHtml(variant, `${chrom}-${scoredPos}-${scoredRef}-${scoredAlt}`, genomeVersion, subRowCount)
                 : `<td rowspan="${subRowCount}"></td>`
 
             // everything the per-position table modal needs for this transcript, so its icon
@@ -2935,9 +3057,9 @@
                 toolName: tool,
                 scores: scores,
                 chrom: chrom,
-                variantPos: parseInt(pos),
-                ref: ref,
-                alt: alt,
+                variantPos: scoredPos,
+                ref: scoredRef,
+                alt: scoredAlt,
                 geneName: scores['g_name'],
                 transcriptId: scores['t_id'],
                 strand: scores['t_strand'] == "-" ? "minus" : "plus",
@@ -2970,8 +3092,8 @@
                 // through renderScoreTableFromRows identically. Always spliceai: only SpliceAI
                 // reports SCORES_FOR_INSERTED_BASES.
                 const detailedScoresTable = generateTableOfScoresForInsertedBases(
-                    modalDialogId, scores[scoreKey], scores[positionKey], ref, alt, scores["SCORES_FOR_INSERTED_BASES"],
-                    {tool: "spliceai", chrom: chrom, variantPos: parseInt(pos), alt: alt, scores: scores, mask: mask == "1"})
+                    modalDialogId, scores[scoreKey], scores[positionKey], scoredRef, scoredAlt, scores["SCORES_FOR_INSERTED_BASES"],
+                    {tool: "spliceai", chrom: chrom, variantPos: scoredPos, alt: scoredAlt, scores: scores, mask: mask == "1"})
 
                 if (detailedScoresTable) {
                     modalDialogIds.push(modalDialogId)
@@ -2987,7 +3109,7 @@
                                 parseFloat(scores[scoreKey]) == 0 &&
                                 parseFloat(scores[REF_scoreKey]) == 0 &&
                                 parseFloat(scores[ALT_scoreKey]) == 0
-                            )? "" : updatePositionAccountingForInsertedBases(scoreKey, scores[scoreKey], scores[positionKey], ref, alt, scores["SCORES_FOR_INSERTED_BASES"])}
+                            )? "" : updatePositionAccountingForInsertedBases(scoreKey, scores[scoreKey], scores[positionKey], scoredRef, scoredAlt, scores["SCORES_FOR_INSERTED_BASES"])}
                         </td>`
 
                 if (showRefAltScoreColumns == "1") {
@@ -3323,14 +3445,42 @@
     }
 
 
-    const generateOtherPredictorsTable = async (normalizedVariant, variant, genomeVersion, submissionId) => {
+    const generateOtherPredictorsTable = async (normalizedVariant, variant, genomeVersion, submissionId, consequencesPromise = null) => {
         /* Generate the 'Other scores' table from the score-lookup service (the AlphaMissense,
            PrimateAI-3D / PromoterAI, and AVI lookup tables) and the gnomAD and myvariant.info queries.
            submissionId identifies the handleSubmit call this table belongs to, so a slow
-           response can be discarded once a newer search has superseded it. */
+           response can be discarded once a newer search has superseded it.
+           consequencesPromise carries the resolver's left-aligned spelling of the variant, which is
+           the one every source queried here indexes; see the wait below. */
         console.log(`Generating other scores table for ${normalizedVariant}`)
 
-        const variantTokens = (normalizedVariant || "---").split("-")
+        // Trimmed the way the SpliceAI and Pangolin services trim it before scoring (see trimSharedBases),
+        // so a variant typed with extra unchanged bases is looked up, and shown, as the variant it is.
+        const typedTokens = (normalizedVariant || "---").split("-")
+        const shortest = trimSharedBases(parseInt(typedTokens[1]), typedTokens[2] || "", typedTokens[3] || "")
+        const shortestVariant = `${typedTokens[0]}-${shortest.pos}-${shortest.ref}-${shortest.alt}`
+        let variantTokens = shortestVariant.split("-")
+
+        // gnomAD, myvariant.info and the precomputed score tables all index the left-aligned
+        // spelling of a variant, which for an indel inside a repeat can differ from the trimmed
+        // spelling the services score. Only an indel can be written more than one way, so only an
+        // indel waits here for the consequence lookup to supply the left-aligned spelling; an SNV is
+        // already canonical and its queries start immediately. Only on hg38: consequencesFrom never
+        // fills in normalizedVariant for hg19, so an hg19 indel would wait for nothing. The SpliceAI
+        // and Pangolin calls never wait either way: they are already in flight by the time this runs.
+        let leftAlignedVariant = null
+        if (consequencesPromise && genomeVersion == "38"
+                && (variantTokens[2].length > 1 || variantTokens[3].length > 1)) {
+            const resolvedConsequences = await consequencesPromise
+            if (resolvedConsequences && resolvedConsequences.normalizedVariant
+                    && resolvedConsequences.normalizedVariant != shortestVariant) {
+                console.log(`Querying the score lookups with the left-aligned `
+                    + `${resolvedConsequences.normalizedVariant} rather than ${shortestVariant}`)
+                leftAlignedVariant = resolvedConsequences.normalizedVariant
+                variantTokens = leftAlignedVariant.split("-")
+            }
+        }
+
         const chrom = `chr${variantTokens[0].replace("chr", "")}`
         const pos = parseInt(variantTokens[1])
         const ref = variantTokens[2]
@@ -3497,7 +3647,7 @@
 
         $(`#other-predictors-header`).nextAll().remove()
         let firstColumn = buildVariantCellHtml(
-            variant, normalizedVariant, genomeVersion, Object.keys(otherPredictorScores).length, "eight wide column")
+            variant, shortestVariant, genomeVersion, Object.keys(otherPredictorScores).length, "eight wide column")
 
 
         const tableRows = []
@@ -3540,12 +3690,12 @@
                 }
             } else if (otherPredictorName in predictorScoreToPoints) {
                 if (otherPredictor) {
-                    // These two cells are shaded by the ACMG points tier, and the points only apply
-                    // to a missense variant, which isn't known yet: the consequence lookup runs
-                    // alongside these queries rather than ahead of them. So both the shading and the
-                    // number start off withheld, and fillInTranscriptConsequences applies them.
-                    row += `<td class="three wide column missense-shaded" data-missense-bg="${bgColor}" style="vertical-align: top; white-space: nowrap">${escapeHtml(otherPredictor.score)}</td>`
-                    row += `<td class="one wide column missense-points missense-shaded" data-missense-bg="${bgColor}" style="vertical-align: top; text-align: right; white-space: nowrap">
+                    // Both cells are shaded by the score's own ACMG points tier, which is known here,
+                    // so the shading is painted now. Only the points NUMBER is withheld: it applies
+                    // to a missense variant, and the consequence lookup runs alongside these queries
+                    // rather than ahead of them, so fillInTranscriptConsequences reveals it later.
+                    row += `<td class="three wide column" style="vertical-align: top; white-space: nowrap; background-color: ${bgColor}">${escapeHtml(otherPredictor.score)}</td>`
+                    row += `<td class="one wide column missense-points" style="vertical-align: top; text-align: right; white-space: nowrap; background-color: ${bgColor}">
                             <span style="display:none">${predictorScoreToPoints[otherPredictorName](otherPredictor)}&nbsp;${helpIcon}</span>
                         </td></tr>`
                     tableRows.push(row)
@@ -3564,6 +3714,29 @@
             tableRows.push(missingScoresRow)
         }
         $("#other-predictors-header").after(tableRows.join(""))
+
+        // The page-wide popup() init in handleSubmit binds to the icons present when it runs, and
+        // this table is not awaited there, so its rows usually land after it. Bind this table's
+        // icons here, the way generateSai10kTable does for its row.
+        $("#other-predictors-table .question").popup({on: "click", lastResort: "bottom left"})
+            .css({color: "#666666", cursor: "pointer"})
+
+        // This table builds its own variant cell, and it renders on its own schedule now, so it may
+        // appear after the consequence handler already repointed the other tables' links. Repoint
+        // from here as well; the helper just rewrites hrefs, so running it twice is harmless.
+        if (leftAlignedVariant) {
+            pointVariantLinksAtNormalizedSpelling(leftAlignedVariant, genomeVersion)
+        }
+
+        // The consequence handler may already have run and found none of these cells in the DOM, so
+        // reveal the points from here too. See showMissensePointsIfMissense.
+        if (consequencesPromise) {
+            consequencesPromise.then(({consequence}) => {
+                if (submissionId === currentSubmissionId) {
+                    showMissensePointsIfMissense(consequence)
+                }
+            })
+        }
     }
 
     const updateTranscriptButtons = (category) => {
@@ -4148,6 +4321,10 @@
         //start processing submit
         $("#submit-button").addClass("loading disabled")
         $("#response-box, #spliceai-table, #pangolin-table, #sai10k-table, #transcript-button-table, #error-box, #notes-box").hide()
+        // The 'Other scores' table is built off the critical path and clears its own rows only once
+        // its queries return, which is after #response-box is shown again. Without this, the
+        // previous search's scores and links sit under the new search's results until then.
+        $("#other-predictors-header").nextAll().remove()
         $("#error-box, #notes-box").html("")
         clearProgress()
         dismissPerPositionModal()
@@ -4210,10 +4387,22 @@
             // on most searches it isn't known yet anyway. Waiting for it would undo the point of
             // starting these as soon as the coordinates were known.
             showProgressIfCurrent("Computing SpliceAI and Pangolin scores...")
-            let [spliceaiResponseJson, pangolinResponseJson, otherPredictorsResponseJson] = await Promise.all([
+
+            // The 'Other scores' table is started here but deliberately NOT awaited below. For an
+            // indel it waits on the consequence lookup to learn the left-aligned spelling gnomAD and
+            // the precomputed tables index (see generateOtherPredictorsTable), and #response-box is
+            // only shown once everything awaited below has finished -- so including it there would
+            // hold finished SpliceAI and Pangolin tables off screen behind a lookup neither of them
+            // needs. It renders itself when ready and guards that write with submissionId. Its
+            // return value was never read.
+            if (!isPositionOnly) {
+                generateOtherPredictorsTable(normalizedVariant, variant, genomeVersion, submissionId, consequencesPromise)
+                    .catch((e) => console.error("Could not build the other scores table:", e))
+            }
+
+            let [spliceaiResponseJson, pangolinResponseJson] = await Promise.all([
                 generateSplicingResultsTable(normalizedVariant, "SpliceAI", variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltColumns, isPositionOnly, submissionId),
                 generateSplicingResultsTable(normalizedVariant, "Pangolin", variant, genomeVersion, basicOrComprehensive, maxDistance, mask, showRefAltColumns, isPositionOnly, submissionId),
-                isPositionOnly ? Promise.resolve(null) : generateOtherPredictorsTable(normalizedVariant, variant, genomeVersion, submissionId),
             ].map(p => p.catch(e => ({'error': e.message, 'inputError': e.inputError}))))  // if an error is thrown, return {'error': e} instead of the JSON response
 
             if (submissionId !== currentSubmissionId) {
@@ -4278,12 +4467,19 @@
             // soon as the lookup answers. Deliberately not awaited: the results are already on
             // screen, so a slow or unreachable consequence API costs a column rather than the search.
             // Registering the handler here rather than earlier is what guarantees the cells exist.
-            consequencesPromise.then(({consequence, consequencesByTranscriptId}) => {
+            consequencesPromise.then(({consequence, consequencesByTranscriptId, normalizedVariant: leftAlignedVariant}) => {
                 if (submissionId !== currentSubmissionId) {
                     //a newer search owns the display now, so don't write into its tables
                     return
                 }
                 fillInTranscriptConsequences(consequence, consequencesByTranscriptId)
+
+                // The links were built from the trimmed spelling the services score, which for an
+                // indel inside a repeat can be one gnomAD and GeneBe don't index. Now that the
+                // left-aligned spelling is known, point them at it instead.
+                if (leftAlignedVariant && leftAlignedVariant != normalizedVariant) {
+                    pointVariantLinksAtNormalizedSpelling(leftAlignedVariant, genomeVersion)
+                }
 
                 // Show a note if the VariantValidator fallback was used, rather than an error: it
                 // qualifies the scores on screen and belongs above them. Held until here because
